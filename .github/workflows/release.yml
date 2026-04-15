@@ -43,6 +43,10 @@ jobs:
         run: dotnet restore AudioMonitorRouter.sln
 
       - name: Publish single-file self-contained (win-x64)
+        # NOTE: PublishReadyToRun is intentionally DISABLED. R2R + SingleFile on
+        # WPF crashes with "The type initializer for 'System.Windows.Media.FontFamily'
+        # threw an exception" (DirectWrite factory init fails). Known WPF bug —
+        # https://github.com/dotnet/wpf/issues/6792
         shell: pwsh
         run: |
           dotnet publish AudioMonitorRouter\AudioMonitorRouter.csproj `
@@ -52,7 +56,6 @@ jobs:
             -p:PublishSingleFile=true `
             -p:IncludeNativeLibrariesForSelfExtract=true `
             -p:EnableCompressionInSingleFile=true `
-            -p:PublishReadyToRun=true `
             -p:DebugType=None `
             -p:DebugSymbols=false `
             -p:Version=${{ steps.version.outputs.VERSION }} `

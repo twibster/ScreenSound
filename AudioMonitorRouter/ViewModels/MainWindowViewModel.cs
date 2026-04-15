@@ -26,6 +26,20 @@ public partial class MonitorMappingViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasDevice; // true when a real device is selected (not "No mapping")
 
+    /// <summary>
+    /// The user's persistent intent — the audio device ID this monitor should
+    /// map to. Distinct from <see cref="SelectedAudioDevice"/>, which mirrors
+    /// what's actually present in the dropdown right now.
+    /// <para>
+    /// When a device is unplugged, <see cref="SelectedAudioDevice"/> goes null
+    /// (FirstOrDefault returns nothing for a missing ID), but DesiredAudioDeviceId
+    /// stays — so re-plugging the same endpoint, or restarting the app while it
+    /// happens to be present again, restores the mapping. Empty string means
+    /// "(No mapping)" / explicitly cleared.
+    /// </para>
+    /// </summary>
+    public string DesiredAudioDeviceId { get; set; } = string.Empty;
+
     public string DisplayName => Monitor.DisplayText;
 
     public ObservableCollection<AudioDeviceInfo> AvailableDevices { get; }
@@ -42,6 +56,14 @@ public partial class MonitorMappingViewModel : ObservableObject
     partial void OnSelectedAudioDeviceChanged(AudioDeviceInfo? value)
     {
         HasDevice = value != null && !string.IsNullOrEmpty(value.Id);
+        // Capture the user's intent — but only when the change comes with a
+        // real value. The refresh path assigns null when the device the user
+        // wanted is currently unavailable; that must NOT erase the desired ID,
+        // otherwise re-plugging the device can't restore the mapping. User
+        // picks always carry a non-null value (the "(No mapping)" sentinel
+        // included — its Id is "").
+        if (value != null)
+            DesiredAudioDeviceId = value.Id;
         MappingChanged?.Invoke();
     }
 
@@ -203,17 +225,20 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     /// Rebuilds <see cref="AudioDevices"/> from the current endpoint list while
     /// preserving per-monitor selections wherever the same device ID is still
     /// present. Devices that disappeared leave their monitor's selection at
-    /// null — the dropdown reflects reality rather than showing a ghost. Must
-    /// be called on the UI thread.
+    /// null — the dropdown reflects reality rather than showing a ghost — but
+    /// the desired ID stays on each monitor VM, so re-plugging the device
+    /// restores the mapping on the next refresh. Must be called on the UI thread.
     /// </summary>
     private void RefreshAudioDevicesPreservingSelections()
     {
-        // Snapshot selections by monitor name so we can restore after rebuilding
-        // the device list. Using IDs (not references) because the AudioDeviceInfo
-        // instances in AudioDevices are about to be replaced.
-        var previousSelections = Monitors.ToDictionary(
+        // Snapshot the user's intent (DesiredAudioDeviceId), not the live
+        // SelectedAudioDevice — otherwise an unplug-then-replug cycle erases
+        // the mapping: the unplug refresh nulls SelectedAudioDevice, and the
+        // replug refresh would then snapshot string.Empty and have nothing to
+        // restore. Snapshotting intent makes the round-trip lossless.
+        var desiredByMonitor = Monitors.ToDictionary(
             m => m.Monitor.DeviceName,
-            m => m.SelectedAudioDevice?.Id ?? string.Empty);
+            m => m.DesiredAudioDeviceId);
 
         // _isLoading suppresses SaveSettings while we mutate selections
         // programmatically — a hot-plug must not overwrite the user's saved
@@ -230,12 +255,14 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             foreach (var monitorVm in Monitors)
             {
-                if (!previousSelections.TryGetValue(monitorVm.Monitor.DeviceName, out var previousId))
+                if (!desiredByMonitor.TryGetValue(monitorVm.Monitor.DeviceName, out var desiredId))
                     continue;
 
-                // Match by Id (not reference) — AudioDeviceInfo is rebuilt each refresh.
-                // If the device is gone, FirstOrDefault returns null and the binding clears.
-                monitorVm.SelectedAudioDevice = AudioDevices.FirstOrDefault(d => d.Id == previousId);
+                // Match by Id (not reference) — AudioDeviceInfo is rebuilt each
+                // refresh. If the device is gone, FirstOrDefault returns null;
+                // the OnSelectedAudioDeviceChanged guard keeps DesiredAudioDeviceId
+                // intact in that case so a future refresh can still resolve it.
+                monitorVm.SelectedAudioDevice = AudioDevices.FirstOrDefault(d => d.Id == desiredId);
             }
         }
         finally
@@ -265,6 +292,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 var monitorVm = Monitors.FirstOrDefault(m => m.Monitor.DeviceName == mapping.MonitorDeviceName);
                 if (monitorVm != null)
                 {
+                    // Set DesiredAudioDeviceId unconditionally so a hot-plug
+                    // later in the session can resolve a device that was missing
+                    // at app start. SelectedAudioDevice only gets set when the
+                    // device is actually present right now.
+                    monitorVm.DesiredAudioDeviceId = mapping.AudioDeviceId;
                     var device = AudioDevices.FirstOrDefault(d => d.Id == mapping.AudioDeviceId);
                     if (device != null)
                         monitorVm.SelectedAudioDevice = device;
@@ -356,12 +388,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             MinimizeOnClose = MinimizeOnClose,
             StartMinimized = StartMinimized,
             ThemeMode = SelectedThemeIndex switch { 1 => "Light", 2 => "Dark", _ => "System" },
+            // Persist user intent (DesiredAudioDeviceId), not the live SelectedAudioDevice.
+            // Otherwise a Save triggered while a device is temporarily unplugged
+            // (e.g. the user toggles AutoStartWithWindows during a hot-unplug)
+            // would write that mapping out of the file permanently.
             Mappings = Monitors
-                .Where(m => m.SelectedAudioDevice != null && !string.IsNullOrEmpty(m.SelectedAudioDevice.Id))
+                .Where(m => !string.IsNullOrEmpty(m.DesiredAudioDeviceId))
                 .Select(m => new MonitorAudioMapping
                 {
                     MonitorDeviceName = m.Monitor.DeviceName,
-                    AudioDeviceId = m.SelectedAudioDevice!.Id
+                    AudioDeviceId = m.DesiredAudioDeviceId
                 })
                 .ToList()
         };
@@ -442,9 +478,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         if (wasRunning)
             _routingEngine.Stop();
 
-        var currentMappings = Monitors
-            .Where(m => m.SelectedAudioDevice != null && !string.IsNullOrEmpty(m.SelectedAudioDevice.Id))
-            .ToDictionary(m => m.Monitor.DeviceName, m => m.SelectedAudioDevice!.Id);
+        // Snapshot intent (DesiredAudioDeviceId) rather than current resolved
+        // selection — a missing device's mapping should survive a manual
+        // refresh the same way it survives a hot-plug refresh.
+        var desiredByMonitor = Monitors.ToDictionary(
+            m => m.Monitor.DeviceName,
+            m => m.DesiredAudioDeviceId);
 
         LoadDevicesAndMonitors();
 
@@ -453,12 +492,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             foreach (var monitorVm in Monitors)
             {
-                if (currentMappings.TryGetValue(monitorVm.Monitor.DeviceName, out var deviceId))
-                {
-                    var device = AudioDevices.FirstOrDefault(d => d.Id == deviceId);
-                    if (device != null)
-                        monitorVm.SelectedAudioDevice = device;
-                }
+                if (!desiredByMonitor.TryGetValue(monitorVm.Monitor.DeviceName, out var desiredId))
+                    continue;
+
+                // Re-seed the desired ID first — LoadDevicesAndMonitors built
+                // brand-new MonitorMappingViewModel instances with empty defaults.
+                monitorVm.DesiredAudioDeviceId = desiredId;
+                monitorVm.SelectedAudioDevice = AudioDevices.FirstOrDefault(d => d.Id == desiredId);
             }
 
             // OnMappingChanged is suppressed under _isLoading, so read volumes

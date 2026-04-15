@@ -91,18 +91,26 @@ public sealed class AudioDeviceNotifier : IMMNotificationClient, IDisposable
         if (_disposed) return;
         // Covers disable/enable from Sound Settings and state flips when a device
         // becomes unavailable without being "removed" from the endpoint registry.
+        if (!IsRenderEndpoint(deviceId)) return;
         SafeRaise(DevicesChanged);
     }
 
     public void OnDeviceAdded(string deviceId)
     {
         if (_disposed) return;
+        if (!IsRenderEndpoint(deviceId)) return;
         SafeRaise(DevicesChanged);
     }
 
     public void OnDeviceRemoved(string deviceId)
     {
         if (_disposed) return;
+        // GetDevice typically fails here because the OS has already de-registered
+        // the endpoint by the time this callback fires. IsRenderEndpoint
+        // conservatively returns true on failure so we still refresh on real
+        // render-device removals — the cost is also refreshing on capture-device
+        // removals, which is acceptable (one cheap rebuild vs. a stale dropdown).
+        if (!IsRenderEndpoint(deviceId)) return;
         SafeRaise(DevicesChanged);
     }
 
@@ -119,6 +127,27 @@ public sealed class AudioDeviceNotifier : IMMNotificationClient, IDisposable
     /// mutation) — far too chatty to hook to a refresh. Intentionally a no-op.
     /// </summary>
     public void OnPropertyValueChanged(string pwstrDeviceId, PropertyKey key) { }
+
+    /// <summary>
+    /// Resolves <paramref name="deviceId"/> and returns true if it's a render
+    /// endpoint. Returns true on lookup failure (device already gone, RPC error)
+    /// — the caller treats uncertainty as "render" so we don't silently drop a
+    /// real render-device change. The unavoidable trade-off is that we also
+    /// refresh on capture-device removals, since the endpoint is no longer
+    /// queryable when OnDeviceRemoved fires.
+    /// </summary>
+    private bool IsRenderEndpoint(string deviceId)
+    {
+        try
+        {
+            using var device = _enumerator.GetDevice(deviceId);
+            return device.DataFlow == DataFlow.Render;
+        }
+        catch
+        {
+            return true;
+        }
+    }
 
     private static void SafeRaise(Action? handler)
     {

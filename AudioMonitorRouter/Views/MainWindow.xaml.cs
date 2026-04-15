@@ -292,7 +292,10 @@ public partial class MainWindow : UiWindow
                    ?? FindParentContextMenu(item);
         if (menu?.PlacementTarget is FrameworkElement fe && fe.Tag is SessionDisplayViewModel session)
         {
-            _viewModel.SetAppOverride(session.ProcessName, deviceId);
+            // Carry the session's already-extracted icon straight over to the
+            // pin so the Pinned page shows it without waiting for the next
+            // sessions update.
+            _viewModel.SetAppOverride(session.ProcessName, deviceId, session.Icon);
         }
     }
 

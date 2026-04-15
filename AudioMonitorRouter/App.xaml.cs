@@ -45,3 +45,30 @@ public class ZeroToVisibilityConverter : IValueConverter
         throw new NotImplementedException();
     }
 }
+
+/// <summary>
+/// <c>null</c> → Visible, non-null → Collapsed. Drives fallback visuals
+/// (e.g. a pin glyph in place of an app icon that hasn't been captured yet
+/// because the pinned app isn't currently playing audio).
+/// </summary>
+public class NullToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value == null ? Visibility.Visible : Visibility.Collapsed;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+/// <summary>
+/// Non-null → Visible, <c>null</c> → Collapsed. Pairs with
+/// <see cref="NullToVisibilityConverter"/> for the primary/fallback pattern.
+/// </summary>
+public class NotNullToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value != null ? Visibility.Visible : Visibility.Collapsed;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}

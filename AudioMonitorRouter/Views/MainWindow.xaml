@@ -362,9 +362,20 @@
                                                         <ColumnDefinition Width="*"/>
                                                         <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
-                                                    <wpfui:SymbolIcon Grid.Column="0" Symbol="Pin24" FontSize="18"
-                                                                      Margin="0,0,12,0" VerticalAlignment="Center"
-                                                                      Foreground="{DynamicResource SystemAccentColorPrimaryBrush}"/>
+                                                    <!-- Icon slot: app icon if we've captured it, else a pin glyph.
+                                                         Icon is captured at pin time from the live session and
+                                                         back-filled for disk-loaded pins when the app next plays.
+                                                         Both visuals live in the same slot so the row layout is
+                                                         stable either way. -->
+                                                    <Grid Grid.Column="0" Width="20" Height="20"
+                                                          Margin="0,0,12,0" VerticalAlignment="Center">
+                                                        <Image Source="{Binding Icon}" Width="20" Height="20"
+                                                               RenderOptions.BitmapScalingMode="HighQuality"
+                                                               Visibility="{Binding Icon, Converter={StaticResource NotNullToVis}}"/>
+                                                        <wpfui:SymbolIcon Symbol="Pin24" FontSize="18"
+                                                                          Foreground="{DynamicResource SystemAccentColorPrimaryBrush}"
+                                                                          Visibility="{Binding Icon, Converter={StaticResource NullToVis}}"/>
+                                                    </Grid>
                                                     <TextBlock Grid.Column="1" Text="{Binding ProcessName}"
                                                                FontSize="13" FontWeight="Medium" VerticalAlignment="Center"/>
                                                     <TextBlock Grid.Column="2" Text="{Binding AudioDeviceName}"

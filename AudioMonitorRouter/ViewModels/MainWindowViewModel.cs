@@ -101,6 +101,14 @@ public partial class AppOverrideViewModel : ObservableObject
     [ObservableProperty] private string _processName = string.Empty;
     [ObservableProperty] private string _audioDeviceId = string.Empty;
     [ObservableProperty] private string _audioDeviceName = string.Empty;
+
+    /// <summary>
+    /// App icon shown in the Pinned page. Captured from the originating session
+    /// at pin-creation time, or back-filled by <c>MainWindowViewModel</c> when a
+    /// pin loaded from disk matches a live session on the next session update.
+    /// Null while the pinned app isn't running — the UI falls back to a pin glyph.
+    /// </summary>
+    [ObservableProperty] private ImageSource? _icon;
 }
 
 public partial class MainWindowViewModel : ObservableObject, IDisposable
@@ -461,7 +469,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     /// the same process. Persists immediately and pushes to the engine so the
     /// new pin takes effect on the next routing pass (typically &lt;200ms).
     /// </summary>
-    public void SetAppOverride(string processName, string deviceId)
+    /// <param name="icon">
+    /// Optional app icon to attach to the pin. Callers that already have the
+    /// icon (the right-click flow pins from a live session that's been through
+    /// <c>GetProcessIcon</c>) pass it through so the Pinned page shows it
+    /// immediately rather than waiting for the next sessions update.
+    /// </param>
+    public void SetAppOverride(string processName, string deviceId, ImageSource? icon = null)
     {
         if (string.IsNullOrWhiteSpace(processName) || string.IsNullOrWhiteSpace(deviceId))
             return;
@@ -474,6 +488,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             existing.AudioDeviceId = deviceId;
             existing.AudioDeviceName = deviceName;
+            // Only overwrite with a non-null incoming icon — re-pinning from a
+            // session preserves the icon we already had if the caller passed null.
+            if (icon != null) existing.Icon = icon;
         }
         else
         {
@@ -481,7 +498,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             {
                 ProcessName = processName,
                 AudioDeviceId = deviceId,
-                AudioDeviceName = deviceName
+                AudioDeviceName = deviceName,
+                Icon = icon
             });
         }
 
@@ -723,6 +741,21 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                     Icon = item.Icon,
                     IsOverridden = item.Session.IsOverridden
                 });
+            }
+
+            // Back-fill icons on pins loaded from disk: when a pinned app first
+            // starts playing audio we now have a PID to extract its icon from,
+            // so the Pinned page switches from the pin-glyph fallback to the real
+            // app icon. Matches are case-insensitive; first live session wins.
+            foreach (var ovr in AppOverrides)
+            {
+                if (ovr.Icon != null) continue;
+                var match = sessionData.FirstOrDefault(s =>
+                    string.Equals(s.Session.ProcessName, ovr.ProcessName,
+                                  StringComparison.OrdinalIgnoreCase)
+                    && s.Icon != null);
+                if (match != null)
+                    ovr.Icon = match.Icon;
             }
         });
     }

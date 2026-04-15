@@ -47,7 +47,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Submit manifests to winget-pkgs
-        uses: vedantmgoyal9/winget-releaser@v2
+        # Pinned to a commit SHA rather than the @v2 major tag for supply-chain
+        # hardening — the upstream v2 tag tracks main and moves on every merge,
+        # so referencing @v2 would silently pull in whatever's latest whenever
+        # this workflow runs. The pinned SHA is v2 as of 2026-04-15 (release
+        # "v2", published 2025-01-27, last moved to this commit 2026-03-15).
+        #
+        # To bump: check https://github.com/vedantmgoyal9/winget-releaser/releases,
+        # review the changelog since this SHA, then run:
+        #   gh api repos/vedantmgoyal9/winget-releaser/git/refs/tags/v2 --jq '.object.sha'
+        # and replace the SHA below. Consider adding .github/dependabot.yml with
+        # the `github-actions` ecosystem so these bumps arrive as PRs instead.
+        uses: vedantmgoyal9/winget-releaser@4ffc7888bffd451b357355dc214d43bb9f23917e
         with:
           # PackageIdentifier follows the <Publisher>.<PackageName> convention.
           # Must match the casing winget expects — it's case-sensitive in the

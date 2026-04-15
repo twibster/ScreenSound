@@ -3,7 +3,6 @@ namespace AudioMonitorRouter.Models;
 public class AppSettings
 {
     public List<MonitorAudioMapping> Mappings { get; set; } = new();
-    public int PollingIntervalMs { get; set; } = 2500;
     public bool IsEnabled { get; set; } = true;
     public bool AutoStartWithWindows { get; set; }
     public bool MinimizeOnClose { get; set; }

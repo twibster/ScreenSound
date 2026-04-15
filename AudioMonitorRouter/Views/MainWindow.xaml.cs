@@ -8,6 +8,7 @@ using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
 using Forms = System.Windows.Forms;
 using Drawing = System.Drawing;
+using WpfMenuItem = System.Windows.Controls.MenuItem;
 
 namespace AudioMonitorRouter.Views;
 
@@ -28,7 +29,9 @@ public partial class MainWindow : UiWindow
         _viewModel = new MainWindowViewModel();
         DataContext = _viewModel;
 
-        _pages = new[] { HomePage, SettingsPage, AboutPage };
+        // Order must match the Tag indices on the sidebar RadioButtons:
+        //   0 = Home, 1 = Pinned, 2 = Settings, 3 = About.
+        _pages = new[] { HomePage, PinnedPage, SettingsPage, AboutPage };
 
         SetupTrayIcon();
 
@@ -182,6 +185,122 @@ public partial class MainWindow : UiWindow
         }
 
         _activePage = target;
+    }
+
+    // ── Per-app override (pin) UI handlers ────────────────────────────────
+    //
+    // The session-row ContextMenu is declared with two MenuItems by name
+    // (PinToDeviceMenu, RemovePinMenu). On open we rebuild the "Pin to" submenu
+    // from the live AudioDevices list and toggle "Remove pin" visibility based
+    // on the row's IsOverridden state. The session VM is carried via the row
+    // Border's Tag and read back through PlacementTarget.Tag — ContextMenu lives
+    // in its own popup window and doesn't inherit the row's DataContext.
+
+    private void SessionRow_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (sender is not FrameworkElement fe) return;
+        if (fe.ContextMenu is not ContextMenu menu) return;
+        if (fe.Tag is not SessionDisplayViewModel session)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        var pinSubmenu = menu.Items.OfType<WpfMenuItem>()
+            .FirstOrDefault(m => m.Name == "PinToDeviceMenu");
+        var removeItem = menu.Items.OfType<WpfMenuItem>()
+            .FirstOrDefault(m => m.Name == "RemovePinMenu");
+        var separator = menu.Items.OfType<Separator>()
+            .FirstOrDefault(s => s.Name == "PinSeparator");
+
+        if (pinSubmenu == null || removeItem == null || separator == null) return;
+
+        // Rebuild the device submenu fresh each open — devices can be hot-plugged
+        // between menu uses, and the user's currently-pinned device should appear
+        // checked even if it's not the row's currently-routed device.
+        pinSubmenu.Items.Clear();
+
+        // Skip the synthetic "(No mapping)" entry — its Id is empty and pinning
+        // to it would mean "no device", which the override schema doesn't model
+        // (use Remove pin for that).
+        var devices = _viewModel.AudioDevices.Where(d => !string.IsNullOrEmpty(d.Id)).ToList();
+        if (devices.Count == 0)
+        {
+            pinSubmenu.Items.Add(new WpfMenuItem { Header = "(No audio devices)", IsEnabled = false });
+        }
+        else
+        {
+            // Find the existing pin (if any) so we can show a check next to the
+            // device the user already chose for this app.
+            var existingPin = _viewModel.AppOverrides.FirstOrDefault(
+                o => string.Equals(o.ProcessName, session.ProcessName,
+                                   StringComparison.OrdinalIgnoreCase));
+
+            foreach (var device in devices)
+            {
+                var item = new WpfMenuItem
+                {
+                    Header = device.FriendlyName,
+                    Tag = device.Id,
+                    IsCheckable = true,
+                    IsChecked = existingPin != null && existingPin.AudioDeviceId == device.Id,
+                };
+                item.Click += PinToDevice_Click;
+                pinSubmenu.Items.Add(item);
+            }
+        }
+
+        // Hide remove pin (and its separator) when there's nothing to remove.
+        var hasPin = session.IsOverridden ||
+                     _viewModel.AppOverrides.Any(o => string.Equals(
+                         o.ProcessName, session.ProcessName, StringComparison.OrdinalIgnoreCase));
+        removeItem.Visibility = hasPin ? Visibility.Visible : Visibility.Collapsed;
+        separator.Visibility = hasPin ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void PinToDevice_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not WpfMenuItem item) return;
+        if (item.Tag is not string deviceId || string.IsNullOrEmpty(deviceId)) return;
+
+        // Walk up to the owning ContextMenu to recover the row's session VM.
+        var menu = ItemsControl.ItemsControlFromItemContainer(item) as ContextMenu
+                   ?? FindParentContextMenu(item);
+        if (menu?.PlacementTarget is FrameworkElement fe && fe.Tag is SessionDisplayViewModel session)
+        {
+            _viewModel.SetAppOverride(session.ProcessName, deviceId);
+        }
+    }
+
+    private void RemovePin_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not WpfMenuItem item) return;
+        var menu = FindParentContextMenu(item);
+        if (menu?.PlacementTarget is FrameworkElement fe && fe.Tag is SessionDisplayViewModel session)
+        {
+            _viewModel.RemoveAppOverride(session.ProcessName);
+        }
+    }
+
+    // Walks up logical/visual parents to find the enclosing ContextMenu. Needed
+    // because ItemsControlFromItemContainer doesn't reach across submenu levels.
+    private static ContextMenu? FindParentContextMenu(DependencyObject start)
+    {
+        DependencyObject? current = start;
+        while (current != null)
+        {
+            if (current is ContextMenu cm) return cm;
+            current = LogicalTreeHelper.GetParent(current) ?? VisualTreeHelper.GetParent(current);
+        }
+        return null;
+    }
+
+    private void RemovePinFromList_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is AppOverrideViewModel ovr)
+        {
+            _viewModel.RemoveAppOverride(ovr.ProcessName);
+        }
     }
 
     protected override void OnClosing(CancelEventArgs e)

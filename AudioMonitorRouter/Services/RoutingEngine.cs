@@ -343,7 +343,22 @@ public class RoutingEngine : IDisposable
                 }
 
                 if (string.IsNullOrEmpty(targetDeviceId))
+                {
+                    // No rule applies right now. If we previously routed this PID
+                    // (pin removed, monitor mapping cleared, window moved to a
+                    // monitor without a mapping, …), undo our prior per-app
+                    // policy so Windows falls back to the system default. Without
+                    // this, the stale override set by the pin would persist after
+                    // unpinning and audio would stay stuck on the old device.
+                    // TryRemove-first means we only clear once per transition —
+                    // subsequent heartbeat cycles find no cache entry and skip.
+                    if (_lastRoutedDevice.TryRemove(session.ProcessId, out _))
+                    {
+                        try { _routerService.TryClearProcessRouting(session.ProcessId); }
+                        catch { /* process may have exited */ }
+                    }
                     continue;
+                }
 
                 // Update display to show the target device
                 if (_deviceNameCache.TryGetValue(targetDeviceId, out var targetDeviceName))

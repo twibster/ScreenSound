@@ -72,3 +72,31 @@ public class NotNullToVisibilityConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotImplementedException();
 }
+
+/// <summary>
+/// Non-empty/whitespace string → Visible, empty/null → Collapsed. Used by the
+/// About page to show the "Open release page" hyperlink only when the update
+/// check has produced a URL to link to.
+/// </summary>
+public class StringToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => !string.IsNullOrWhiteSpace(value as string) ? Visibility.Visible : Visibility.Collapsed;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+/// <summary>
+/// Flips a bool. Lets us bind an <c>IsEnabled</c> to a "busy" flag without
+/// duplicating the inverse state in the ViewModel — e.g. "button is enabled
+/// when <c>IsCheckingForUpdate</c> is false".
+/// </summary>
+public class InverseBooleanConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is bool b ? !b : true;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is bool b ? !b : false;
+}

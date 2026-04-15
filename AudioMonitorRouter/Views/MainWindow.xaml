@@ -8,7 +8,8 @@
         MinHeight="560" MinWidth="720"
         WindowStartupLocation="CenterScreen"
         ExtendsContentIntoTitleBar="True"
-        WindowBackdropType="Mica">
+        WindowBackdropType="Mica"
+        Icon="/Assets/app-icon.png">
 
     <wpfui:UiWindow.Resources>
         <!-- Sidebar nav button style (accent bar only, no box) -->
@@ -496,46 +497,101 @@
                         <TextBlock Text="About" FontSize="20" FontWeight="Medium" Margin="0,0,0,16"/>
                         <wpfui:Card Padding="24">
                             <StackPanel>
+                                <!-- ── Header: icon + identity block ────────────────
+                                     Identity block stacks three lines next to the
+                                     48px icon: product name, version, and copyright.
+                                     Version and copyright both come from assembly
+                                     metadata (MSBuild fills them from the csproj's
+                                     <Version> / <Copyright> properties) so the UI
+                                     always matches what shipped.
+                                -->
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-                                    <wpfui:SymbolIcon Symbol="Speaker224" FontSize="36"
-                                                      Foreground="{DynamicResource SystemAccentColorPrimaryBrush}"
-                                                      VerticalAlignment="Center" Margin="0,0,16,0"/>
+                                    <!--
+                                        App icon from Assets/app-icon.png — a 256x256 PNG rasterised
+                                        from design/app-icon.svg. PNG (not the multi-image app.ico)
+                                        because BitmapImage picks the first frame of an ICO, which
+                                        for our 16/20/24/32/... layout is the tiny 16x16 glyph.
+                                    -->
+                                    <Image Source="/Assets/app-icon.png" Width="48" Height="48"
+                                           VerticalAlignment="Center" Margin="0,0,16,0"
+                                           RenderOptions.BitmapScalingMode="HighQuality"/>
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock Text="Audio Monitor Router" FontSize="18" FontWeight="SemiBold"/>
-                                        <TextBlock Text="Version 1.0.0" FontSize="12"
+                                        <TextBlock Text="{Binding AppVersionDisplay}" FontSize="12"
+                                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,2,0,0"/>
+                                        <TextBlock Text="{Binding CopyrightDisplay}" FontSize="12"
                                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,2,0,0"/>
                                     </StackPanel>
                                 </StackPanel>
                                 <Border Height="1" Background="{DynamicResource ControlStrokeColorDefaultBrush}" Margin="0,0,0,16"/>
-                                <TextBlock TextWrapping="Wrap" FontSize="13" LineHeight="22"
-                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}">
-                                    Automatically routes audio output based on which monitor an application
-                                    is displayed on. Apps on Monitor A play through Speaker A, apps on
-                                    Monitor B play through Speaker B.
-                                </TextBlock>
-                                <TextBlock Text="Features" FontSize="14" FontWeight="SemiBold" Margin="0,20,0,8"/>
-                                <StackPanel Margin="8,0,0,0">
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                        <TextBlock Text="&#x2022;" Margin="0,0,8,0" Foreground="{DynamicResource PaletteGreenBrush}"/>
-                                        <TextBlock Text="Per-app audio routing via Windows audio policy"
-                                                   FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                        <TextBlock Text="&#x2022;" Margin="0,0,8,0" Foreground="{DynamicResource PaletteGreenBrush}"/>
-                                        <TextBlock Text="Mixed-DPI multi-monitor support"
-                                                   FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                        <TextBlock Text="&#x2022;" Margin="0,0,8,0" Foreground="{DynamicResource PaletteGreenBrush}"/>
-                                        <TextBlock Text="Electron/Chromium app detection (Discord, VS Code, etc.)"
-                                                   FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                        <TextBlock Text="&#x2022;" Margin="0,0,8,0" Foreground="{DynamicResource PaletteGreenBrush}"/>
-                                        <TextBlock Text="Resets audio routing on exit"
-                                                   FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                                    </StackPanel>
-                                </StackPanel>
+
+                                <!-- ── Links ────────────────────────────────────────
+                                     Two static GitHub URLs; /releases/latest redirects
+                                     to the current tag so we don't have to bake a
+                                     version into the URL here.
+
+                                     Padding is tightened from the default wpfui:Button
+                                     (11,5,11,6) down to 8,2 so the stacked hyperlinks
+                                     read as a compact list rather than two spaced-out
+                                     buttons. No margin between them — the reduced
+                                     padding alone gives enough breathing room.
+                                -->
+                                <TextBlock Text="Links" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                <wpfui:Hyperlink Content="Project website on GitHub"
+                                                 Icon="Link24"
+                                                 NavigateUri="https://github.com/twibster/AudioMonitorRouter"
+                                                 HorizontalAlignment="Left" Padding="8,2"/>
+                                <wpfui:Hyperlink Content="Latest release on GitHub"
+                                                 Icon="Link24"
+                                                 NavigateUri="https://github.com/twibster/AudioMonitorRouter/releases/latest"
+                                                 HorizontalAlignment="Left" Padding="8,2"/>
+
+                                <!-- ── Update check ─────────────────────────────────
+                                     User-initiated (no background polling) so we
+                                     don't hit GitHub's rate limit without consent.
+                                     The button is disabled while a probe is in flight
+                                     and the result is rendered next to it in one
+                                     status line. If a newer version is available,
+                                     the Download hyperlink appears with the release
+                                     URL.
+                                -->
+                                <Border Height="1" Background="{DynamicResource ControlStrokeColorDefaultBrush}" Margin="0,20,0,16"/>
+                                <TextBlock Text="Updates" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                <!--
+                                    Grid (rather than a horizontal StackPanel) so the status
+                                    TextBlock can actually wrap to the content card's width.
+                                    StackPanel gives children infinite horizontal space, which
+                                    silently defeats TextWrapping — a long "Update available:
+                                    1.2.3" string would clip outside the card. Button keeps
+                                    its intrinsic width (Auto column); the wrap column (*)
+                                    takes the remainder.
+                                -->
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <wpfui:Button Grid.Column="0"
+                                                  Content="Check for updates"
+                                                  Icon="ArrowSync24"
+                                                  Command="{Binding CheckForUpdatesCommand}"
+                                                  IsEnabled="{Binding IsCheckingForUpdate, Converter={StaticResource InverseBooleanConverter}}"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding UpdateStatus}"
+                                               VerticalAlignment="Center"
+                                               Margin="12,0,0,0"
+                                               FontSize="13"
+                                               TextWrapping="Wrap"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                </Grid>
+                                <!-- Hyperlink only shown when an update is available (LatestReleaseUrl is
+                                     non-empty). wpfui:Hyperlink derives from wpfui:Button and, on click,
+                                     opens NavigateUri via ShellExecute — no Command wiring needed. -->
+                                <wpfui:Hyperlink Content="Open release page"
+                                                 Icon="Open24"
+                                                 NavigateUri="{Binding LatestReleaseUrl}"
+                                                 HorizontalAlignment="Left"
+                                                 Visibility="{Binding LatestReleaseUrl, Converter={StaticResource StringToVisibilityConverter}}"/>
                             </StackPanel>
                         </wpfui:Card>
                     </StackPanel>

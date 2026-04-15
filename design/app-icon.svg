@@ -1,34 +1,43 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
-  <!-- Concept 4b (tightened): widescreen monitor, speaker + single soundwave
-       inside, a clean outbound arrow that physically crosses the right bezel.
-       Three clear semantic slots:
-         • grey monitor (structure)
-         • blue speaker + wave (audio content)
-         • blue arrow (routing direction) -->
+  <!-- Concept 4b v3: pushed tighter against the canvas so the glyph matches
+       peer app-icon weight at taskbar sizes. Content bounds now ~94% x 85%
+       (was 89% x 79% in v2, 84% x 55% in the original). The monitor aspect
+       dropped to 1.18:1 — still unambiguously a display (the stand grounds
+       it), but a bit squarer so we can recover the vertical height the old
+       widescreen proportion was spending on empty padding. -->
 
-  <!-- Monitor frame: 5:3 widescreen -->
-  <rect x="22" y="64" width="160" height="100" rx="10"
-        fill="none" stroke="#5A5A5A" stroke-width="12"/>
+  <!-- Monitor frame. Edge at x=7..195 / y=11..173 once the 14px stroke is
+       accounted for on both sides. -->
+  <rect x="14" y="18" width="174" height="148" rx="12"
+        fill="none" stroke="#5A5A5A" stroke-width="14"/>
 
-  <!-- Stand stem + base, centered under the monitor -->
-  <line x1="102" y1="164" x2="102" y2="188"
-        stroke="#5A5A5A" stroke-width="12" stroke-linecap="round"/>
-  <line x1="74" y1="192" x2="130" y2="192"
-        stroke="#5A5A5A" stroke-width="12" stroke-linecap="round"/>
+  <!-- Stand stem. Centered under the monitor (monitor center_x = 101). -->
+  <line x1="101" y1="166" x2="101" y2="214"
+        stroke="#5A5A5A" stroke-width="14" stroke-linecap="round"/>
 
-  <!-- Speaker glyph inside the display -->
-  <path d="M 52 100 L 74 100 L 102 78 L 102 150 L 74 128 L 52 128 Z"
+  <!-- Stand base. Wider than v2 so the stand feels sturdier under the now-
+       larger monitor frame. Bottom stroke edge at y=227, ~11% canvas fill
+       left below — enough visual breathing room so it doesn't feel cramped. -->
+  <line x1="62" y1="220" x2="140" y2="220"
+        stroke="#5A5A5A" stroke-width="14" stroke-linecap="round"/>
+
+  <!-- Speaker glyph inside the display, scaled up with the monitor. Horn
+       tip reaches y=48 (interior top is y=25, so 23px clearance), bottom at
+       y=144 (interior bottom is y=159, so 15px clearance — tight but clean). -->
+  <path d="M 34 82 L 70 82 L 106 48 L 106 144 L 70 110 L 34 110 Z"
         fill="#0078D4" stroke="#0078D4" stroke-width="3" stroke-linejoin="round"/>
 
-  <!-- Single soundwave next to the speaker (inside the monitor) -->
-  <path d="M 118 98 Q 136 114, 118 130"
-        fill="none" stroke="#0078D4" stroke-width="10" stroke-linecap="round"/>
+  <!-- Soundwave. Sits between the speaker horn and the arrow tail, with a
+       ~6px gap on each side so the three blue elements read as distinct. -->
+  <path d="M 126 74 Q 152 96, 126 118"
+        fill="none" stroke="#0078D4" stroke-width="12" stroke-linecap="round"/>
 
-  <!-- Outbound arrow: tail starts just past the wave, crosses the right
-       bezel, ends in a tip outside. Drawn last so the blue sits on top of
-       the grey where they overlap — the crossing reads as a clean exit. -->
-  <path d="M 144 114 L 224 114
-           M 208 98 L 224 114 L 208 130"
-        fill="none" stroke="#0078D4" stroke-width="13"
+  <!-- Outbound arrow. Tail starts at x=164 (inside the monitor), crosses
+       the right bezel at x≈195, ends at the tip (x=240+7.5=247.5 with the
+       round cap, flush with the canvas edge). Drawn last so blue sits on
+       top of grey at the crossing. -->
+  <path d="M 164 96 L 240 96
+           M 222 74 L 240 96 L 222 118"
+        fill="none" stroke="#0078D4" stroke-width="15"
         stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

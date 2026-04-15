@@ -22,7 +22,7 @@
     <Authors>twibster</Authors>
     <Company>twibster</Company>
     <Description>Automatically routes per-app audio to different speakers based on monitor placement on Windows 11.</Description>
-    <Copyright>Copyright (c) 2026 twibster</Copyright>
+    <Copyright>Copyright (c) 2026 Omar Omran</Copyright>
     <RepositoryUrl>https://github.com/twibster/AudioMonitorRouter</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
@@ -32,6 +32,26 @@
     <PackageReference Include="NAudio" Version="2.3.0" />
     <PackageReference Include="System.Drawing.Common" Version="8.0.10" />
     <PackageReference Include="WPF-UI" Version="2.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      app.ico is already embedded as the Win32 executable icon via
+      <ApplicationIcon> above. We additionally pack it as a WPF resource so the
+      tray-icon setup (see MainWindow.xaml.cs > SetupTrayIcon) can load it via a
+      pack:// URI and ask for a specific DPI-scaled frame rather than whatever
+      ExtractAssociatedIcon happens to return. The duplicated ~8 KB is worth a
+      crisp tray glyph.
+
+      app-icon.png is a 256x256 rasterisation of design/app-icon.svg used by the
+      About page. WPF's BitmapImage picks the first frame of a multi-image ICO
+      rather than the largest, so pointing Image.Source at app.ico produces a
+      blurry 16x16 glyph scaled up. A single PNG sidesteps that entirely.
+      Regenerate via the IconBuilder tool at design/tools/IconBuilder, see
+      its Program.cs header for the exact dotnet run invocation.
+    -->
+    <Resource Include="app.ico" />
+    <Resource Include="Assets\app-icon.png" />
   </ItemGroup>
 
 </Project>

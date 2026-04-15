@@ -96,14 +96,27 @@ public partial class MainWindow : UiWindow
     {
         _trayIcon = new Forms.NotifyIcon();
 
+        // Previously this used Icon.ExtractAssociatedIcon(exePath), which pulls
+        // a single arbitrary frame (typically the 32x32) from the exe's Win32
+        // icon resource. The NotifyIcon then scaled that down to the system
+        // tray size, producing a visibly smaller, fuzzier glyph than neighbour
+        // icons that were authored at the correct pixel size.
+        //
+        // Load from the WPF-resource-packed app.ico instead and hand the Icon
+        // ctor SystemInformation.SmallIconSize — that's the DPI-adjusted tray
+        // size (16 at 100%, 20 at 125%, 24 at 150%, ...). The Icon(Stream,Size)
+        // ctor picks the closest-matching frame from the multi-size file, so
+        // the 16/20/24 frames we pack in app.ico all get used at their native
+        // size with no resampling.
         try
         {
-            var exePath = Environment.ProcessPath;
-            if (exePath != null)
-                _trayIcon.Icon = Drawing.Icon.ExtractAssociatedIcon(exePath);
+            _trayIcon.Icon = LoadTrayIconFromResources();
         }
         catch
         {
+            // Any failure here (missing resource, exe rewritten in an odd way,
+            // etc.) falls back to a neutral shell icon rather than crashing
+            // the tray setup — the app still works without the tray glyph.
             _trayIcon.Icon = Drawing.SystemIcons.Application;
         }
 
@@ -116,6 +129,26 @@ public partial class MainWindow : UiWindow
         menu.Items.Add("Exit", null, (_, _) => ForceClose());
         _trayIcon.ContextMenuStrip = menu;
         _trayIcon.DoubleClick += (_, _) => ShowFromTray();
+    }
+
+    /// <summary>
+    /// Loads the multi-size app.ico (packed as a WPF resource via the csproj
+    /// &lt;Resource&gt; item) and asks for the frame matching the current tray
+    /// icon size. Done once at startup; the tray doesn't update the icon when
+    /// DPI changes mid-session, which matches how every other tray app behaves.
+    /// </summary>
+    private static Drawing.Icon LoadTrayIconFromResources()
+    {
+        var uri = new Uri("pack://application:,,,/app.ico", UriKind.Absolute);
+        var streamInfo = System.Windows.Application.GetResourceStream(uri)
+            ?? throw new InvalidOperationException("app.ico resource not found");
+        using var stream = streamInfo.Stream;
+
+        // SystemInformation.SmallIconSize is DPI-aware: returns 16x16 at 100%,
+        // 20x20 at 125%, 24x24 at 150%. Our ICO contains exact matches for all
+        // three so the Icon ctor returns a perfect, unscaled frame.
+        var size = Forms.SystemInformation.SmallIconSize;
+        return new Drawing.Icon(stream, size);
     }
 
     private void ShowFromTray()

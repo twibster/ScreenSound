@@ -14,14 +14,14 @@
     <NoWarn>WFAC010</NoWarn>
 
     <!-- Assembly metadata - shown in file properties & installer -->
-    <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
-    <Product>Audio Monitor Router</Product>
-    <AssemblyTitle>Audio Monitor Router</AssemblyTitle>
+    <Version>2.0.0</Version>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
+    <Product>ScreenSound</Product>
+    <AssemblyTitle>ScreenSound</AssemblyTitle>
     <Authors>twibster</Authors>
     <Company>twibster</Company>
-    <Description>Automatically routes per-app audio to different speakers based on monitor placement on Windows 11.</Description>
+    <Description>Sound follows your windows. Per-app audio routing for multi-monitor Windows 11 — each app plays through the speaker paired with the monitor it's on.</Description>
     <Copyright>Copyright (c) 2026 Omar Omran</Copyright>
     <RepositoryUrl>https://github.com/twibster/ScreenSound</RepositoryUrl>
     <RepositoryType>git</RepositoryType>

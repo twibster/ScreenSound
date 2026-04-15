@@ -120,7 +120,7 @@ public partial class MainWindow : UiWindow
             _trayIcon.Icon = Drawing.SystemIcons.Application;
         }
 
-        _trayIcon.Text = "Audio Monitor Router";
+        _trayIcon.Text = "ScreenSound";
         _trayIcon.Visible = true;
 
         var menu = new Forms.ContextMenuStrip();

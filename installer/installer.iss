@@ -1,4 +1,4 @@
-; Inno Setup script for Audio Monitor Router
+; Inno Setup script for ScreenSound
 ; Builds a Windows installer that installs to Program Files, creates Start Menu
 ; shortcuts, registers an uninstaller, and launches the app after install.
 ;
@@ -6,7 +6,7 @@
 ; downloads + installs the .NET 8 Desktop Runtime on-demand if missing,
 ; keeping our installer ~10x smaller than a self-contained build.
 
-#define MyAppName "Audio Monitor Router"
+#define MyAppName "ScreenSound"
 #define MyAppExeName "ScreenSound.exe"
 #define MyAppPublisher "twibster"
 #define MyAppURL "https://github.com/twibster/ScreenSound"
@@ -14,7 +14,7 @@
 ; Version comes from the APP_VERSION env var (set by CI). Fallback for local runs.
 #define MyAppVersion GetEnv("APP_VERSION")
 #if MyAppVersion == ""
-  #define MyAppVersion "1.0.0"
+  #define MyAppVersion "2.0.0"
 #endif
 
 ; Pinned .NET 8 Desktop Runtime download. Bump this on major .NET 8 patch releases.
@@ -23,9 +23,13 @@
 #define DotNet8RuntimeUrl "https://builds.dotnet.microsoft.com/dotnet/Runtime/8.0.15/windowsdesktop-runtime-8.0.15-win-x64.exe"
 
 [Setup]
-; AppId is a GUID that uniquely identifies the app for uninstall. NEVER change this
-; once a release has shipped or upgrades will install side-by-side instead of replacing.
-AppId={{F4B8A24A-3C7E-4D88-9F1C-B1D0A8E3E921}
+; AppId is a GUID that uniquely identifies the app in Windows' uninstall registry.
+; Regenerated for the ScreenSound rebrand (v2.0.0) so the rebranded product gets
+; its own identity in Add/Remove Programs rather than silently upgrading an
+; "Audio Monitor Router" v1 install. Do NOT change this again once v2 has
+; shipped — changing it would cause future upgrades to install side-by-side
+; instead of replacing.
+AppId={{3BBBE2CE-314A-48FE-85F7-BD0DD3762B6F}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppName} {#MyAppVersion}

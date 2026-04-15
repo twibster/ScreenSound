@@ -46,7 +46,7 @@ jobs:
       should_release: ${{ steps.bump.outputs.should_release }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # Need full history + tags to compute the next version.
           fetch-depth: 0

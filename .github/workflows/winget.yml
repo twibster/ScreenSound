@@ -1,0 +1,69 @@
+name: Publish to Winget
+
+# Submits each new ScreenSound release to the Windows Package Manager
+# Community Repository (microsoft/winget-pkgs) as `twibster.ScreenSound`.
+# Once the first submission is merged upstream by Microsoft's reviewers,
+# users can install with:
+#
+#   winget install twibster.ScreenSound
+#
+# Trigger: `release: released` fires once, when release.yml publishes a
+# non-draft, non-prerelease GitHub Release. softprops/action-gh-release
+# in release.yml sets both flags to false, so every cut release kicks
+# this flow. Workflow_dispatch is additionally provided as an operational
+# retry lane — if the upstream PR needs to be re-opened (e.g. after the
+# PAT rotates or reviewers request changes), a maintainer can rerun
+# against any past tag without re-cutting the release.
+#
+# Required one-time setup (see README of the feat/winget-release PR):
+#   1. Fork microsoft/winget-pkgs to the twibster account.
+#   2. Create a classic PAT with `public_repo` scope.
+#   3. Add the PAT as repo secret `WINGET_TOKEN`.
+#
+# Why a classic PAT instead of GITHUB_TOKEN: GITHUB_TOKEN is scoped to
+# this repo, so it can't push manifest commits to twibster/winget-pkgs
+# (our fork) nor open a PR targeting microsoft/winget-pkgs. The action
+# needs a token tied to a user account with write access to both. A
+# fine-grained PAT works too but requires explicitly granting access to
+# the fork and to contents/pull-requests scopes; classic with public_repo
+# is the documented, low-friction path.
+
+on:
+  release:
+    types: [released]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to submit (e.g. v2.1.0). Leave blank to submit the latest release.'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Submit to winget-pkgs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Submit manifests to winget-pkgs
+        uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          # PackageIdentifier follows the <Publisher>.<PackageName> convention.
+          # Must match the casing winget expects — it's case-sensitive in the
+          # repo's folder structure (manifests/t/twibster/ScreenSound/…).
+          identifier: twibster.ScreenSound
+
+          # Installer-only filter: our releases include both a setup .exe and
+          # a portable .zip; winget only installs the Inno Setup executable,
+          # and submitting the zip as an installer would fail validation.
+          installers-regex: '^ScreenSound-Setup-.*\.exe$'
+
+          # Empty string = "use the release that triggered this workflow"
+          # (the action's default). On workflow_dispatch runs, the input is
+          # passed through so the maintainer can target any past tag.
+          release-tag: ${{ inputs.tag }}
+
+          # Token must be a PAT with `public_repo` scope (not GITHUB_TOKEN).
+          # See the file header for the why and the one-time setup steps.
+          token: ${{ secrets.WINGET_TOKEN }}

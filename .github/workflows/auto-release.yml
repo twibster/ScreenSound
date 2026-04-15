@@ -62,18 +62,27 @@ jobs:
           LABELS: ${{ toJSON(github.event.pull_request.labels) }}
         run: |
           set -euo pipefail
+          # Needed so a non-zero `return` from has_label() below (propagated
+          # through command substitution) actually aborts the script under
+          # `set -e`. Without this, command-sub failures are swallowed and
+          # the step would silently fall through as if the label were absent.
+          shopt -s inherit_errexit
           echo "PR labels JSON: $LABELS"
 
           # jq --arg keeps the label name out of the filter string, so a label
-          # with regex-special characters can't break parsing. Wrapped in `if`
-          # (rather than `cmd && var=1`) so a "label absent" return-1 from jq
-          # doesn't confuse `set -e`.
+          # with regex-special characters can't break parsing. We only treat
+          # jq exit 1 (filter evaluated to false/null) as "label absent";
+          # higher codes are real failures (parse error = 4, runtime = 5) and
+          # must fail the step loudly rather than silently skip the release.
           has_label() {
-            if echo "$LABELS" | jq -e --arg n "$1" 'any(.[]; .name == $n)' >/dev/null; then
-              echo 1
-            else
-              echo 0
-            fi
+            local rc=0
+            echo "$LABELS" | jq -e --arg n "$1" 'any(.[]; .name == $n)' >/dev/null || rc=$?
+            case "$rc" in
+              0) echo 1 ;;
+              1) echo 0 ;;
+              *) echo "::error::jq failed while evaluating PR labels (exit $rc)." >&2
+                 return "$rc" ;;
+            esac
           }
 
           has_major=$(has_label "release:major")

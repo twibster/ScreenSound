@@ -1,5 +1,13 @@
 name: Release
 
+# Three entry points:
+#   1. push of a semver tag (e.g. "git push origin v1.2.0")       — the manual path
+#   2. workflow_dispatch                                           — UI button with version input
+#   3. workflow_call from auto-release.yml                         — PR-merge driven path
+#
+# All three converge on the same build matrix. Version is resolved in one place
+# (the "Determine version" step) so downstream steps are oblivious to how we got here.
+
 on:
   push:
     tags:
@@ -10,6 +18,12 @@ on:
         description: 'Version (e.g., 1.0.0) - used only when dispatched manually for testing'
         required: true
         default: '1.0.0'
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version to release (no "v" prefix)'
+        required: true
+        type: string
 
 jobs:
   build:
@@ -31,13 +45,18 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
-            $version = "${{ github.event.inputs.version }}"
+          $eventName = "${{ github.event_name }}"
+          if ($eventName -eq "workflow_dispatch" -or $eventName -eq "workflow_call") {
+            $version = "${{ inputs.version }}"
           } else {
             $version = "${{ github.ref_name }}" -replace '^v',''
           }
+          if (-not $version) {
+            Write-Error "Version could not be resolved from event '$eventName'"
+            exit 1
+          }
           "VERSION=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          Write-Host "Building version $version"
+          Write-Host "Building version $version (from $eventName)"
 
       - name: Restore
         run: dotnet restore AudioMonitorRouter.sln
@@ -85,11 +104,16 @@ jobs:
           path: installer\Output\*.exe
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+        # Runs on tag push (manual release) and workflow_call (auto-release).
+        # Skipped on workflow_dispatch — that entry is for smoke-testing the
+        # build matrix without producing a tag/release.
+        # softprops/action-gh-release creates the tag at HEAD if not present,
+        # which is what the workflow_call path needs (no tag was pushed).
+        if: github.event_name == 'push' || github.event_name == 'workflow_call'
         uses: softprops/action-gh-release@v2
         with:
-          name: ${{ github.ref_name }}
-          tag_name: ${{ github.ref_name }}
+          name: v${{ steps.version.outputs.VERSION }}
+          tag_name: v${{ steps.version.outputs.VERSION }}
           draft: false
           prerelease: false
           generate_release_notes: true

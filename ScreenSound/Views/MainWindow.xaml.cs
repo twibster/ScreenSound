@@ -363,6 +363,40 @@ public partial class MainWindow : UiWindow
         }
     }
 
+    // ── Donate page ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Opens the Ko-fi donation page in the user's default browser. The
+    /// Donate tab's button is a bare image-button (no <c>wpfui:Hyperlink</c>)
+    /// so the ko-fi-yellow branded PNG renders pixel-perfect without any
+    /// Hyperlink chrome repainting over it — the trade-off is that URL
+    /// launching has to be wired here rather than inherited from NavigateUri.
+    ///
+    /// <c>UseShellExecute=true</c> is required for opening https:// URLs in
+    /// .NET 8 — without it <see cref="System.Diagnostics.Process.Start(string)"/>
+    /// treats the URL as an executable path and throws Win32Exception. Any
+    /// failure (no default browser, shell error) is swallowed: the button
+    /// click is a best-effort nice-to-have, not something to crash the UI
+    /// over.
+    /// </summary>
+    private void KofiDonate_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "https://ko-fi.com/twibster",
+                UseShellExecute = true,
+            });
+        }
+        catch
+        {
+            // Intentionally swallowed — a failed browser launch shouldn't
+            // crash the app or even surface an error dialog. The ToolTip
+            // already shows the URL so the user can copy/paste if needed.
+        }
+    }
+
     protected override void OnClosing(CancelEventArgs e)
     {
         if (!_forceClose && _viewModel.MinimizeOnClose)

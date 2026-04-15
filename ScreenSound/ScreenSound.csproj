@@ -52,6 +52,14 @@
     -->
     <Resource Include="app.ico" />
     <Resource Include="Assets\app-icon.png" />
+    <!--
+      Official Ko-fi "Buy me a coffee" branded button from
+      https://storage.ko-fi.com/cdn/kofi2.png. Ko-fi explicitly provides this
+      asset for embedding by supporters, so bundling it in the app is within
+      their brand guidelines. Used as the Donate page CTA — the branded
+      button reads more as a real call-to-action than a generic text link.
+    -->
+    <Resource Include="Assets\kofi-button.png" />
   </ItemGroup>
 
 </Project>

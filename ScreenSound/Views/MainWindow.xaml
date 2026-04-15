@@ -645,17 +645,44 @@
                                     stays free either way.
                                 </TextBlock>
 
-                                <!-- wpfui:Hyperlink derives from wpfui:Button and ShellExecutes
-                                     NavigateUri on click, so no code-behind wiring is needed.
-                                     Appearance="Primary" promotes it from the subtle link look
-                                     used on the About page to an accent-filled CTA, matching the
-                                     weight users expect on a "Donate" button. Icon="Open24" mirrors
-                                     the About page's external-link convention. -->
-                                <wpfui:Hyperlink Content="Donate via PayPal"
-                                                 Icon="Open24"
-                                                 Appearance="Primary"
-                                                 NavigateUri="https://paypal.me/omara2002"
-                                                 HorizontalAlignment="Left"/>
+                                <!-- Ko-fi CTA — the official branded "Buy me a coffee" button
+                                     image from Ko-fi's CDN, bundled as a WPF Resource (see
+                                     csproj) so it renders offline.
+
+                                     The Template is stripped to a bare ContentPresenter so the
+                                     image IS the button face: no default WPF button chrome,
+                                     no hover rectangle painting over the yellow Ko-fi art.
+                                     Hover / pressed feedback is done via Opacity on the outer
+                                     Border so the branded colours stay intact while still
+                                     giving the user "this is clickable" affordance.
+
+                                     Cursor=Hand and AutomationProperties.Name give mouse +
+                                     screen-reader affordances the bare image wouldn't carry.
+                                     ToolTip spells out the destination so users can see where
+                                     a click will take them before committing. -->
+                                <Button Click="KofiDonate_Click"
+                                        HorizontalAlignment="Left" Cursor="Hand"
+                                        ToolTip="Opens ko-fi.com/twibster in your browser"
+                                        AutomationProperties.Name="Donate via Ko-fi — opens ko-fi.com/twibster in your browser">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="Root" Background="Transparent">
+                                                <ContentPresenter HorizontalAlignment="Center"
+                                                                  VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Root" Property="Opacity" Value="0.85"/>
+                                                </Trigger>
+                                                <Trigger Property="IsPressed" Value="True">
+                                                    <Setter TargetName="Root" Property="Opacity" Value="0.7"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                    <Image Source="/Assets/kofi-button.png" Width="200"
+                                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Button>
                             </StackPanel>
                         </wpfui:Card>
                     </StackPanel>

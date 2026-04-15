@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Concept 3: Speaker on the left, audio path forks into two destinations -->
+  <!-- Reads as: one source, multiple routes -->
+
+  <!-- Speaker body + cone as one filled shape -->
+  <path d="M 36 112 L 60 112 L 108 84 L 108 172 L 60 144 L 36 144 Z"
+        fill="#5A5A5A" stroke="#5A5A5A" stroke-width="4" stroke-linejoin="round"/>
+  <!-- Highlight dot (driver) -->
+  <circle cx="84" cy="128" r="6" fill="#FFFFFF" opacity="0.9"/>
+
+  <!-- Diverging paths from the fork point (132, 128) -->
+  <path d="M 132 128 L 188 80"
+        stroke="#0078D4" stroke-width="14" stroke-linecap="round" fill="none"/>
+  <path d="M 132 128 L 188 176"
+        stroke="#0078D4" stroke-width="14" stroke-linecap="round" fill="none"/>
+
+  <!-- Arrow tips at each destination -->
+  <polyline points="172,72 188,80 184,96"
+            fill="none" stroke="#0078D4" stroke-width="14"
+            stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="172,184 188,176 184,160"
+            fill="none" stroke="#0078D4" stroke-width="14"
+            stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

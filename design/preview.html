@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AudioMonitorRouter — icon concept previews</title>
+<style>
+  :root {
+    --bg-light: #f5f5f5;
+    --bg-dark: #1f1f1f;
+    --fg-light: #1f1f1f;
+    --fg-dark: #eaeaea;
+    --muted-light: #666;
+    --muted-dark: #999;
+    --card-border-light: #e1e1e1;
+    --card-border-dark: #3a3a3a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    margin: 0;
+    padding: 32px 40px 64px;
+    background: var(--bg-light);
+    color: var(--fg-light);
+  }
+  h1 { margin: 0 0 8px; font-weight: 600; font-size: 24px; }
+  p.lede { margin: 0 0 32px; color: var(--muted-light); max-width: 64ch; }
+
+  .row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .card {
+    border: 1px solid var(--card-border-light);
+    border-radius: 10px;
+    padding: 20px;
+    background: #fff;
+  }
+  .card h2 {
+    margin: 0 0 4px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .card .subtitle {
+    margin: 0 0 16px;
+    font-size: 12px;
+    color: var(--muted-light);
+    line-height: 1.4;
+  }
+  .sizes {
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+  }
+  .size {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .size label {
+    font-size: 10px;
+    color: var(--muted-light);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Dark-background block: mirror the same cards on a dark surface */
+  .on-dark {
+    background: var(--bg-dark);
+    color: var(--fg-dark);
+    padding: 32px 40px;
+    margin: 0 -40px;
+    border-top: 1px solid var(--card-border-dark);
+    border-bottom: 1px solid var(--card-border-dark);
+  }
+  .on-dark h1 { color: var(--fg-dark); }
+  .on-dark p.lede { color: var(--muted-dark); }
+  .on-dark .card {
+    background: #2a2a2a;
+    border-color: var(--card-border-dark);
+  }
+  .on-dark .card .subtitle { color: var(--muted-dark); }
+  .on-dark .size label { color: var(--muted-dark); }
+
+  /* Tray-simulation strip: thin, dark, full-width, icons only */
+  .tray {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #202020;
+    color: #ccc;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 11px;
+    margin-bottom: 8px;
+  }
+  .tray-label { margin-right: auto; color: #888; }
+  .tray img { display: block; }
+</style>
+</head>
+<body>
+
+<h1>AudioMonitorRouter — icon concepts</h1>
+<p class="lede">
+  Four concept sketches at the intended final size (256&nbsp;px), a
+  mid-range taskbar size (48&nbsp;px), and the system-tray size (16&nbsp;px).
+  The same four cards render again on a dark surface below so you can check
+  contrast in both theme modes, and at the bottom there's a simulated tray
+  strip for each concept.
+</p>
+
+<div class="row">
+  <!-- Concept 1 -->
+  <div class="card">
+    <h2>Concept 1 — Dual-monitor transfer</h2>
+    <p class="subtitle">Two monitors with an arrow arcing between them. Tells the whole story; busiest at 16px.</p>
+    <div class="sizes">
+      <div class="size">
+        <img src="explorations/icon-concept-1-dual-monitor-transfer.svg" width="128" height="128" alt="">
+        <label>128</label>
+      </div>
+      <div class="size">
+        <img src="explorations/icon-concept-1-dual-monitor-transfer.svg" width="48" height="48" alt="">
+        <label>48</label>
+      </div>
+      <div class="size">
+        <img src="explorations/icon-concept-1-dual-monitor-transfer.svg" width="16" height="16" alt="">
+        <label>16</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Concept 2 -->
+  <div class="card">
+    <h2>Concept 2 — Monitor emitting waves</h2>
+    <p class="subtitle">Single display, three soundwaves. Simplest silhouette; survives tiny sizes best.</p>
+    <div class="sizes">
+      <div class="size">
+        <img src="explorations/icon-concept-2-monitor-emitting-waves.svg" width="128" height="128" alt="">
+        <label>128</label>
+      </div>
+      <div class="size">
+        <img src="explorations/icon-concept-2-monitor-emitting-waves.svg" width="48" height="48" alt="">
+        <label>48</label>
+      </div>
+      <div class="size">
+        <img src="explorations/icon-concept-2-monitor-emitting-waves.svg" width="16" height="16" alt="">
+        <label>16</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Concept 3 -->
+  <div class="card">
+    <h2>Concept 3 — Speaker branching</h2>
+    <p class="subtitle">One source, two outputs. Routing-first; no screens in the glyph.</p>
+    <div class="sizes">
+      <div class="size">
+        <img src="explorations/icon-concept-3-speaker-branching.svg" width="128" height="128" alt="">
+        <label>128</label>
+      </div>
+      <div class="size">
+        <img src="explorations/icon-concept-3-speaker-branching.svg" width="48" height="48" alt="">
+        <label>48</label>
+      </div>
+      <div class="size">
+        <img src="explorations/icon-concept-3-speaker-branching.svg" width="16" height="16" alt="">
+        <label>16</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Concept 4 -->
+  <div class="card">
+    <h2>Concept 4 — Monitor contains speaker</h2>
+    <p class="subtitle">Display outline with a speaker glyph inside. Strongest silhouette; reads cleanly everywhere.</p>
+    <div class="sizes">
+      <div class="size">
+        <img src="explorations/icon-concept-4-monitor-contains-speaker.svg" width="128" height="128" alt="">
+        <label>128</label>
+      </div>
+      <div class="size">
+        <img src="explorations/icon-concept-4-monitor-contains-speaker.svg" width="48" height="48" alt="">
+        <label>48</label>
+      </div>
+      <div class="size">
+        <img src="explorations/icon-concept-4-monitor-contains-speaker.svg" width="16" height="16" alt="">
+        <label>16</label>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="on-dark">
+  <div class="row">
+    <div class="card">
+      <h2>Concept 1 — on dark</h2>
+      <p class="subtitle">Watch the grey outline — it can fade against dark chrome.</p>
+      <div class="sizes">
+        <div class="size"><img src="explorations/icon-concept-1-dual-monitor-transfer.svg" width="128" height="128" alt=""><label>128</label></div>
+        <div class="size"><img src="explorations/icon-concept-1-dual-monitor-transfer.svg" width="48" height="48" alt=""><label>48</label></div>
+        <div class="size"><img src="explorations/icon-concept-1-dual-monitor-transfer.svg" width="16" height="16" alt=""><label>16</label></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Concept 2 — on dark</h2>
+      <p class="subtitle">Monitor outline vs. dark bg.</p>
+      <div class="sizes">
+        <div class="size"><img src="explorations/icon-concept-2-monitor-emitting-waves.svg" width="128" height="128" alt=""><label>128</label></div>
+        <div class="size"><img src="explorations/icon-concept-2-monitor-emitting-waves.svg" width="48" height="48" alt=""><label>48</label></div>
+        <div class="size"><img src="explorations/icon-concept-2-monitor-emitting-waves.svg" width="16" height="16" alt=""><label>16</label></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Concept 3 — on dark</h2>
+      <p class="subtitle">Filled speaker stays visible; watch the grey.</p>
+      <div class="sizes">
+        <div class="size"><img src="explorations/icon-concept-3-speaker-branching.svg" width="128" height="128" alt=""><label>128</label></div>
+        <div class="size"><img src="explorations/icon-concept-3-speaker-branching.svg" width="48" height="48" alt=""><label>48</label></div>
+        <div class="size"><img src="explorations/icon-concept-3-speaker-branching.svg" width="16" height="16" alt=""><label>16</label></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Concept 4 — on dark</h2>
+      <p class="subtitle">Outline + inner glyph; check legibility at 16.</p>
+      <div class="sizes">
+        <div class="size"><img src="explorations/icon-concept-4-monitor-contains-speaker.svg" width="128" height="128" alt=""><label>128</label></div>
+        <div class="size"><img src="explorations/icon-concept-4-monitor-contains-speaker.svg" width="48" height="48" alt=""><label>48</label></div>
+        <div class="size"><img src="explorations/icon-concept-4-monitor-contains-speaker.svg" width="16" height="16" alt=""><label>16</label></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h1 style="margin-top: 48px">Concept 4 refinements</h1>
+<p class="lede">
+  Three variants that try to push Concept 4 past "display with audio" toward
+  "audio routed across monitors". 4a adds a depth cue (second monitor), 4b
+  adds a direction cue (wave escapes the frame), 4c reframes the glyph as an
+  app-plus-output badge. The original Concept 4 is repeated on the far left
+  as a baseline.
+</p>
+
+<div class="row">
+  <div class="card">
+    <h2>4 — original (baseline)</h2>
+    <p class="subtitle">Display outline + inner speaker.</p>
+    <div class="sizes">
+      <div class="size"><img src="explorations/icon-concept-4-monitor-contains-speaker.svg" width="128" height="128" alt=""><label>128</label></div>
+      <div class="size"><img src="explorations/icon-concept-4-monitor-contains-speaker.svg" width="48" height="48" alt=""><label>48</label></div>
+      <div class="size"><img src="explorations/icon-concept-4-monitor-contains-speaker.svg" width="16" height="16" alt=""><label>16</label></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>4a — stacked monitors</h2>
+    <p class="subtitle">Adds a second monitor layered behind. Multi-monitor cue, single silhouette.</p>
+    <div class="sizes">
+      <div class="size"><img src="explorations/icon-concept-4a-stacked-monitors.svg" width="128" height="128" alt=""><label>128</label></div>
+      <div class="size"><img src="explorations/icon-concept-4a-stacked-monitors.svg" width="48" height="48" alt=""><label>48</label></div>
+      <div class="size"><img src="explorations/icon-concept-4a-stacked-monitors.svg" width="16" height="16" alt=""><label>16</label></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>4b — waves escape</h2>
+    <p class="subtitle">Outer wave breaks through the right edge to an arrow. Outbound routing.</p>
+    <div class="sizes">
+      <div class="size"><img src="app-icon.svg" width="128" height="128" alt=""><label>128</label></div>
+      <div class="size"><img src="app-icon.svg" width="48" height="48" alt=""><label>48</label></div>
+      <div class="size"><img src="app-icon.svg" width="16" height="16" alt=""><label>16</label></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>4c — app window + speaker badge</h2>
+    <p class="subtitle">Window inside the monitor; speaker as a corner badge. Per-app flavor.</p>
+    <div class="sizes">
+      <div class="size"><img src="explorations/icon-concept-4c-app-window.svg" width="128" height="128" alt=""><label>128</label></div>
+      <div class="size"><img src="explorations/icon-concept-4c-app-window.svg" width="48" height="48" alt=""><label>48</label></div>
+      <div class="size"><img src="explorations/icon-concept-4c-app-window.svg" width="16" height="16" alt=""><label>16</label></div>
+    </div>
+  </div>
+</div>
+
+<div class="on-dark">
+  <div class="row">
+    <div class="card">
+      <h2>4 — on dark</h2>
+      <p class="subtitle">Baseline on dark surface.</p>
+      <div class="sizes">
+        <div class="size"><img src="explorations/icon-concept-4-monitor-contains-speaker.svg" width="128" height="128" alt=""><label>128</label></div>
+        <div class="size"><img src="explorations/icon-concept-4-monitor-contains-speaker.svg" width="48" height="48" alt=""><label>48</label></div>
+        <div class="size"><img src="explorations/icon-concept-4-monitor-contains-speaker.svg" width="16" height="16" alt=""><label>16</label></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>4a — on dark</h2>
+      <p class="subtitle">Watch the ghost monitor behind; can vanish.</p>
+      <div class="sizes">
+        <div class="size"><img src="explorations/icon-concept-4a-stacked-monitors.svg" width="128" height="128" alt=""><label>128</label></div>
+        <div class="size"><img src="explorations/icon-concept-4a-stacked-monitors.svg" width="48" height="48" alt=""><label>48</label></div>
+        <div class="size"><img src="explorations/icon-concept-4a-stacked-monitors.svg" width="16" height="16" alt=""><label>16</label></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>4b — on dark</h2>
+      <p class="subtitle">Escape wave + arrow stay visible via accent colour.</p>
+      <div class="sizes">
+        <div class="size"><img src="app-icon.svg" width="128" height="128" alt=""><label>128</label></div>
+        <div class="size"><img src="app-icon.svg" width="48" height="48" alt=""><label>48</label></div>
+        <div class="size"><img src="app-icon.svg" width="16" height="16" alt=""><label>16</label></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>4c — on dark</h2>
+      <p class="subtitle">App window body is light; may need an alt fill for dark theme.</p>
+      <div class="sizes">
+        <div class="size"><img src="explorations/icon-concept-4c-app-window.svg" width="128" height="128" alt=""><label>128</label></div>
+        <div class="size"><img src="explorations/icon-concept-4c-app-window.svg" width="48" height="48" alt=""><label>48</label></div>
+        <div class="size"><img src="explorations/icon-concept-4c-app-window.svg" width="16" height="16" alt=""><label>16</label></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h1 style="margin-top: 48px">Tray strip simulation (16 px)</h1>
+<p class="lede">This is the size users will actually see every day, next to the clock.</p>
+
+<div class="tray">
+  <span class="tray-label">Concept 1 — dual-monitor transfer</span>
+  <img src="explorations/icon-concept-1-dual-monitor-transfer.svg" width="16" height="16" alt="">
+  <img src="explorations/icon-concept-1-dual-monitor-transfer.svg" width="20" height="20" alt="">
+  <img src="explorations/icon-concept-1-dual-monitor-transfer.svg" width="24" height="24" alt="">
+</div>
+<div class="tray">
+  <span class="tray-label">Concept 2 — monitor emitting waves</span>
+  <img src="explorations/icon-concept-2-monitor-emitting-waves.svg" width="16" height="16" alt="">
+  <img src="explorations/icon-concept-2-monitor-emitting-waves.svg" width="20" height="20" alt="">
+  <img src="explorations/icon-concept-2-monitor-emitting-waves.svg" width="24" height="24" alt="">
+</div>
+<div class="tray">
+  <span class="tray-label">Concept 3 — speaker branching</span>
+  <img src="explorations/icon-concept-3-speaker-branching.svg" width="16" height="16" alt="">
+  <img src="explorations/icon-concept-3-speaker-branching.svg" width="20" height="20" alt="">
+  <img src="explorations/icon-concept-3-speaker-branching.svg" width="24" height="24" alt="">
+</div>
+<div class="tray">
+  <span class="tray-label">Concept 4 — monitor contains speaker</span>
+  <img src="explorations/icon-concept-4-monitor-contains-speaker.svg" width="16" height="16" alt="">
+  <img src="explorations/icon-concept-4-monitor-contains-speaker.svg" width="20" height="20" alt="">
+  <img src="explorations/icon-concept-4-monitor-contains-speaker.svg" width="24" height="24" alt="">
+</div>
+<div class="tray">
+  <span class="tray-label">Concept 4a — stacked monitors</span>
+  <img src="explorations/icon-concept-4a-stacked-monitors.svg" width="16" height="16" alt="">
+  <img src="explorations/icon-concept-4a-stacked-monitors.svg" width="20" height="20" alt="">
+  <img src="explorations/icon-concept-4a-stacked-monitors.svg" width="24" height="24" alt="">
+</div>
+<div class="tray">
+  <span class="tray-label">Concept 4b — waves escape</span>
+  <img src="app-icon.svg" width="16" height="16" alt="">
+  <img src="app-icon.svg" width="20" height="20" alt="">
+  <img src="app-icon.svg" width="24" height="24" alt="">
+</div>
+<div class="tray">
+  <span class="tray-label">Concept 4c — app window + speaker badge</span>
+  <img src="explorations/icon-concept-4c-app-window.svg" width="16" height="16" alt="">
+  <img src="explorations/icon-concept-4c-app-window.svg" width="20" height="20" alt="">
+  <img src="explorations/icon-concept-4c-app-window.svg" width="24" height="24" alt="">
+</div>
+
+</body>
+</html>

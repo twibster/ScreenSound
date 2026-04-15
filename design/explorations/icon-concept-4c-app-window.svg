@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Concept 4c: Monitor with an app window + speaker badge. -->
+  <!-- Reads as: this specific app's audio is bound to this display. -->
+
+  <!-- Monitor frame -->
+  <rect x="28" y="48" width="200" height="120" rx="12"
+        fill="none" stroke="#5A5A5A" stroke-width="12"/>
+  <!-- Stand stem + base -->
+  <line x1="128" y1="168" x2="128" y2="192"
+        stroke="#5A5A5A" stroke-width="12" stroke-linecap="round"/>
+  <line x1="96" y1="196" x2="160" y2="196"
+        stroke="#5A5A5A" stroke-width="12" stroke-linecap="round"/>
+
+  <!-- App window inside the display: title bar (darker) + body -->
+  <rect x="58" y="78" width="108" height="60" rx="6" fill="#D4D4D4"/>
+  <!-- Title bar strip -->
+  <rect x="58" y="78" width="108" height="16" rx="6" fill="#9A9A9A"/>
+  <!-- Title bar dots (traffic-light style) -->
+  <circle cx="68" cy="86" r="3" fill="#FFFFFF"/>
+  <circle cx="78" cy="86" r="3" fill="#FFFFFF"/>
+  <circle cx="88" cy="86" r="3" fill="#FFFFFF"/>
+
+  <!-- Speaker badge overlapping the bottom-right of the monitor -->
+  <!-- White ring to cut a clean gap through the monitor's bezel -->
+  <circle cx="208" cy="148" r="30" fill="#FFFFFF"/>
+  <circle cx="208" cy="148" r="26" fill="#0078D4"/>
+  <!-- Speaker glyph inside the badge -->
+  <path d="M 192 142 L 198 142 L 208 134 L 208 162 L 198 154 L 192 154 Z"
+        fill="#FFFFFF" stroke="#FFFFFF" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M 216 140 Q 224 148, 216 156"
+        fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+</svg>

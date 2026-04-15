@@ -1,0 +1,164 @@
+name: Auto Release on PR Merge
+
+# Fires when a PR is merged to main. Looks at the PR's labels to decide:
+#
+#   release:major  → X.0.0   (breaking change)
+#   release:minor  → 0.X.0   (new feature, backwards compatible)
+#   release:patch  → 0.0.X   (bug fix / polish)
+#   release:skip   → explicit no-release for this merge
+#   (no label)     → implicit no-release  (docs, workflow tweaks, etc.)
+#
+# If a bump label is present, we compute the next version from the latest
+# git tag and invoke release.yml via `workflow_call`. The release workflow
+# handles building, packaging, tagging, and publishing — we never push the
+# tag ourselves, so we don't need a PAT to work around the "GITHUB_TOKEN
+# push events don't trigger workflows" restriction.
+#
+# One-time setup (create the labels in the repo):
+#   gh label create "release:major" --color "B60205" --description "X.0.0 release - breaking change"
+#   gh label create "release:minor" --color "FBCA04" --description "0.X.0 release - new feature"
+#   gh label create "release:patch" --color "0E8A16" --description "0.0.X release - bug fix"
+#   gh label create "release:skip"  --color "CCCCCC" --description "No release for this PR"
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+# Serialize per branch so two near-simultaneous merges to main can't both
+# compute the same next version in parallel and race on the tag/release.
+# cancel-in-progress is intentionally false — a release in flight should
+# finish, not be killed mid-build by the next merge.
+concurrency:
+  group: auto-release-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  compute-version:
+    name: Compute next version
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      should_release: ${{ steps.bump.outputs.should_release }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Need full history + tags to compute the next version.
+          fetch-depth: 0
+          ref: main
+
+      - name: Determine bump type from PR labels
+        id: bump
+        env:
+          # toJSON gives us a structured payload that doesn't rely on label
+          # names being shell-safe — we match against "name":"..." substrings.
+          LABELS: ${{ toJSON(github.event.pull_request.labels) }}
+        run: |
+          set -euo pipefail
+          echo "PR labels JSON: $LABELS"
+
+          has_major=$(echo "$LABELS" | grep -c '"name":"release:major"' || true)
+          has_minor=$(echo "$LABELS" | grep -c '"name":"release:minor"' || true)
+          has_patch=$(echo "$LABELS" | grep -c '"name":"release:patch"' || true)
+          has_skip=$(echo  "$LABELS" | grep -c '"name":"release:skip"'  || true)
+
+          bump_count=$(( has_major + has_minor + has_patch ))
+
+          # Reject contradictory combinations *before* honoring skip — otherwise
+          # adding both release:skip and release:patch silently picks skip,
+          # which masks the author's mistake.
+          if [ "$has_skip" -gt 0 ] && [ "$bump_count" -gt 0 ]; then
+            echo "::error::release:skip cannot be combined with release:major/minor/patch — pick one."
+            exit 1
+          fi
+
+          if [ "$has_skip" -gt 0 ]; then
+            echo "::notice::release:skip label present — skipping release"
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$bump_count" -eq 0 ]; then
+            echo "::notice::No release:* label on PR — skipping release"
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$bump_count" -gt 1 ]; then
+            echo "::error::Multiple release:* labels set. Pick exactly one of release:major, release:minor, release:patch."
+            exit 1
+          fi
+
+          if   [ "$has_major" -gt 0 ]; then bump_type=major
+          elif [ "$has_minor" -gt 0 ]; then bump_type=minor
+          else                              bump_type=patch
+          fi
+
+          # Latest semver tag. Anchored regex keeps prereleases / random tags out.
+          latest_tag=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 || true)
+          if [ -z "$latest_tag" ]; then
+            latest_tag="v0.0.0"
+            echo "::notice::No existing semver tags — starting from v0.0.0"
+          fi
+          echo "Latest tag: $latest_tag"
+
+          v="${latest_tag#v}"
+          IFS='.' read -r major minor patch <<< "$v"
+
+          case "$bump_type" in
+            major) major=$((major+1)); minor=0; patch=0 ;;
+            minor) minor=$((minor+1)); patch=0 ;;
+            patch) patch=$((patch+1)) ;;
+          esac
+
+          new_version="${major}.${minor}.${patch}"
+          new_tag="v${new_version}"
+
+          # Defense against races / accidental re-runs — refuse to overwrite.
+          if git rev-parse "$new_tag" >/dev/null 2>&1; then
+            echo "::error::Tag $new_tag already exists. Bump from $latest_tag would collide — resolve manually."
+            exit 1
+          fi
+
+          echo "Bumping $bump_type: $latest_tag -> $new_tag"
+          echo "version=$new_version" >> "$GITHUB_OUTPUT"
+          echo "should_release=true"  >> "$GITHUB_OUTPUT"
+
+  release:
+    name: Build & publish release
+    needs: compute-version
+    if: needs.compute-version.outputs.should_release == 'true'
+    # Reuse the same release pipeline as tag-push + manual dispatch. This is
+    # the "workflow_call" entry on release.yml — not a separate flow.
+    uses: ./.github/workflows/release.yml
+    with:
+      version: ${{ needs.compute-version.outputs.version }}
+    permissions:
+      contents: write
+
+  comment-on-pr:
+    name: Comment release link on PR
+    needs: [compute-version, release]
+    if: needs.compute-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Post release link
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ needs.compute-version.outputs.version }}';
+            const tag = `v${version}`;
+            const releaseUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/tag/${tag}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: `Released as [**${tag}**](${releaseUrl}).`
+            });

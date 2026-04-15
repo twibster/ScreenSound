@@ -45,18 +45,24 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          $eventName = "${{ github.event_name }}"
-          if ($eventName -eq "workflow_dispatch" -or $eventName -eq "workflow_call") {
-            $version = "${{ inputs.version }}"
-          } else {
+          # inputs.version is set by workflow_dispatch AND workflow_call; use it
+          # when present. We can't key off github.event_name for the reusable-
+          # workflow path: when release.yml is invoked via `uses:` from
+          # auto-release.yml, github.event_name in this job is the *caller's*
+          # triggering event ("pull_request"), not "workflow_call". Falling
+          # back to branch name ("main") meant builds tried `-p:Version=main`
+          # and dotnet rejected it as not a valid version string.
+          $version = "${{ inputs.version }}"
+          if (-not $version) {
+            # Tag-push path: strip the leading 'v' from refs/tags/vX.Y.Z.
             $version = "${{ github.ref_name }}" -replace '^v',''
           }
           if (-not $version) {
-            Write-Error "Version could not be resolved from event '$eventName'"
+            Write-Error "Version could not be resolved (event='${{ github.event_name }}', ref='${{ github.ref_name }}', inputs.version='${{ inputs.version }}')"
             exit 1
           }
           "VERSION=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          Write-Host "Building version $version (from $eventName)"
+          Write-Host "Building version $version (event=${{ github.event_name }})"
 
       - name: Restore
         run: dotnet restore AudioMonitorRouter.sln
@@ -109,7 +115,12 @@ jobs:
         # build matrix without producing a tag/release.
         # softprops/action-gh-release creates the tag at HEAD if not present,
         # which is what the workflow_call path needs (no tag was pushed).
-        if: github.event_name == 'push' || github.event_name == 'workflow_call'
+        #
+        # We invert the check (!= workflow_dispatch) rather than testing for
+        # 'workflow_call' directly because, when invoked from auto-release.yml,
+        # github.event_name here is the caller's trigger ('pull_request'), not
+        # 'workflow_call'. Only the manual dispatch path needs to skip.
+        if: github.event_name != 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
           name: v${{ steps.version.outputs.VERSION }}

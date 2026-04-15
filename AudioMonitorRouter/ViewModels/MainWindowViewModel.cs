@@ -119,6 +119,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly AudioRouterService _routerService;
     private readonly RoutingEngine _routingEngine;
     private readonly SettingsService _settingsService;
+    private readonly UpdateService _updateService;
     private readonly AudioDeviceNotifier _deviceNotifier;
     private readonly DispatcherTimer _deviceRefreshTimer;
     private readonly Dispatcher _dispatcher;
@@ -177,6 +178,35 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private int _currentPage; // 0 = Home, 1 = Pinned, 2 = Settings, 3 = About
 
+    // --- About page bindings ---------------------------------------------
+    //
+    // AppVersionDisplay is read once at construction from the assembly's
+    // informational version so the About page always shows the build that's
+    // actually running — no more hardcoded "Version 1.0.0" drifting behind
+    // the actual release tag.
+    //
+    // UpdateStatus is a single line of text rendered under the "Check for
+    // updates" button. States cycle through:
+    //   ""                    — idle, button hidden-label state
+    //   "Checking…"           — request in flight
+    //   "You're up to date"   — latest == current
+    //   "vX.Y.Z available — click to open"   — newer release found
+    //   "Couldn't reach GitHub: …"           — network/rate-limit failure
+    //
+    // LatestReleaseUrl is non-empty only when an update is available; the XAML
+    // binds its visibility so the "Download" hyperlink appears only then.
+
+    public string AppVersionDisplay => $"Version {_updateService.CurrentVersion}";
+
+    [ObservableProperty]
+    private string _updateStatus = string.Empty;
+
+    [ObservableProperty]
+    private string _latestReleaseUrl = string.Empty;
+
+    [ObservableProperty]
+    private bool _isCheckingForUpdate;
+
     public MainWindowViewModel()
     {
         _dispatcher = Application.Current.Dispatcher;
@@ -186,6 +216,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _sessionService = new AudioSessionService();
         _routerService = new AudioRouterService();
         _settingsService = new SettingsService();
+        _updateService = new UpdateService();
         _routingEngine = new RoutingEngine(_monitorService, _sessionService, _routerService);
 
         _routingEngine.SessionsUpdated += OnSessionsUpdated;
@@ -634,6 +665,49 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             }
         }
         catch { }
+    }
+
+    // ── About page: check for updates ────────────────────────────────────
+    //
+    // User clicks the button → we hit the GitHub Releases API, compare tags,
+    // and write a one-line result into UpdateStatus. LatestReleaseUrl is set
+    // only when an update is available; the XAML uses it to decide whether to
+    // render the "Download" hyperlink. IsCheckingForUpdate gates the button so
+    // a double-click can't fire two concurrent probes.
+
+    [RelayCommand]
+    private async Task CheckForUpdatesAsync()
+    {
+        if (IsCheckingForUpdate) return;
+
+        IsCheckingForUpdate = true;
+        UpdateStatus = "Checking…";
+        LatestReleaseUrl = string.Empty;
+
+        try
+        {
+            var result = await _updateService.CheckForUpdateAsync();
+            switch (result)
+            {
+                case UpdateCheckResult.UpToDate upToDate:
+                    UpdateStatus = $"You're on the latest version (v{upToDate.CurrentVersion}).";
+                    break;
+                case UpdateCheckResult.UpdateAvailable update:
+                    UpdateStatus = $"Version {update.LatestVersion} is available.";
+                    LatestReleaseUrl = update.ReleaseUrl;
+                    break;
+                case UpdateCheckResult.NetworkError net:
+                    UpdateStatus = $"Couldn't reach GitHub: {net.Message}";
+                    break;
+                case UpdateCheckResult.Failed fail:
+                    UpdateStatus = $"Update check failed: {fail.Message}";
+                    break;
+            }
+        }
+        finally
+        {
+            IsCheckingForUpdate = false;
+        }
     }
 
     [RelayCommand]

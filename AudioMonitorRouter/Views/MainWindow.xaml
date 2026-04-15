@@ -8,7 +8,8 @@
         MinHeight="560" MinWidth="720"
         WindowStartupLocation="CenterScreen"
         ExtendsContentIntoTitleBar="True"
-        WindowBackdropType="Mica">
+        WindowBackdropType="Mica"
+        Icon="/Assets/app-icon.png">
 
     <wpfui:UiWindow.Resources>
         <!-- Sidebar nav button style (accent bar only, no box) -->
@@ -497,12 +498,20 @@
                         <wpfui:Card Padding="24">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-                                    <wpfui:SymbolIcon Symbol="Speaker224" FontSize="36"
-                                                      Foreground="{DynamicResource SystemAccentColorPrimaryBrush}"
-                                                      VerticalAlignment="Center" Margin="0,0,16,0"/>
+                                    <!--
+                                        App icon from Assets/app-icon.png — a 256x256 PNG rasterised
+                                        from design/app-icon.svg. PNG (not the multi-image app.ico)
+                                        because BitmapImage picks the first frame of an ICO, which
+                                        for our 16/20/24/32/... layout is the tiny 16x16 glyph.
+                                    -->
+                                    <Image Source="/Assets/app-icon.png" Width="48" Height="48"
+                                           VerticalAlignment="Center" Margin="0,0,16,0"
+                                           RenderOptions.BitmapScalingMode="HighQuality"/>
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock Text="Audio Monitor Router" FontSize="18" FontWeight="SemiBold"/>
-                                        <TextBlock Text="Version 1.0.0" FontSize="12"
+                                        <!-- Version string comes from the assembly at runtime so
+                                             it always tracks the CI-built tag, no hardcoding. -->
+                                        <TextBlock Text="{Binding AppVersionDisplay}" FontSize="12"
                                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,2,0,0"/>
                                     </StackPanel>
                                 </StackPanel>
@@ -536,6 +545,36 @@
                                                    FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                                     </StackPanel>
                                 </StackPanel>
+
+                                <!-- ── Update check ─────────────────────────────────
+                                     User-initiated (no background polling) so we
+                                     don't hit GitHub's rate limit without consent.
+                                     The button is disabled while a probe is in flight
+                                     and the result is rendered below in one status
+                                     line. If a newer version is available, the
+                                     Download hyperlink appears with the release URL.
+                                -->
+                                <Border Height="1" Background="{DynamicResource ControlStrokeColorDefaultBrush}" Margin="0,20,0,16"/>
+                                <TextBlock Text="Updates" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <wpfui:Button Content="Check for updates"
+                                                  Icon="ArrowSync24"
+                                                  Command="{Binding CheckForUpdatesCommand}"
+                                                  IsEnabled="{Binding IsCheckingForUpdate, Converter={StaticResource InverseBooleanConverter}}"/>
+                                    <TextBlock Text="{Binding UpdateStatus}"
+                                               VerticalAlignment="Center"
+                                               Margin="12,0,0,0"
+                                               FontSize="13"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                </StackPanel>
+                                <!-- Hyperlink only shown when an update is available (LatestReleaseUrl is
+                                     non-empty). wpfui:Hyperlink derives from wpfui:Button and, on click,
+                                     opens NavigateUri via ShellExecute — no Command wiring needed. -->
+                                <wpfui:Hyperlink Content="Open release page"
+                                                 Icon="Open24"
+                                                 NavigateUri="{Binding LatestReleaseUrl}"
+                                                 HorizontalAlignment="Left"
+                                                 Visibility="{Binding LatestReleaseUrl, Converter={StaticResource StringToVisibilityConverter}}"/>
                             </StackPanel>
                         </wpfui:Card>
                     </StackPanel>

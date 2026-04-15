@@ -81,6 +81,12 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 Filename: "{tmp}\windowsdesktop-runtime-8-x64.exe"; Parameters: "/install /quiet /norestart"; \
   StatusMsg: "Installing .NET 8 Desktop Runtime..."; \
   Check: NeedsDotNet8Install; Flags: waituntilterminated
+; Nudge Explorer to re-read icon metadata for this exe. Without this,
+; users who pinned the app to the taskbar before updating keep seeing the
+; previous icon until Explorer's cache rolls over naturally (often a
+; reboot away). ie4uinit -show is the documented, silent way to trigger a
+; refresh; runhidden avoids flashing a console window at the user.
+Filename: "{sys}\ie4uinit.exe"; Parameters: "-show"; Flags: runhidden skipifdoesntexist
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]

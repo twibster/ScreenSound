@@ -26,6 +26,20 @@ public partial class MonitorMappingViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasDevice; // true when a real device is selected (not "No mapping")
 
+    /// <summary>
+    /// The user's persistent intent — the audio device ID this monitor should
+    /// map to. Distinct from <see cref="SelectedAudioDevice"/>, which mirrors
+    /// what's actually present in the dropdown right now.
+    /// <para>
+    /// When a device is unplugged, <see cref="SelectedAudioDevice"/> goes null
+    /// (FirstOrDefault returns nothing for a missing ID), but DesiredAudioDeviceId
+    /// stays — so re-plugging the same endpoint, or restarting the app while it
+    /// happens to be present again, restores the mapping. Empty string means
+    /// "(No mapping)" / explicitly cleared.
+    /// </para>
+    /// </summary>
+    public string DesiredAudioDeviceId { get; set; } = string.Empty;
+
     public string DisplayName => Monitor.DisplayText;
 
     public ObservableCollection<AudioDeviceInfo> AvailableDevices { get; }
@@ -42,6 +56,14 @@ public partial class MonitorMappingViewModel : ObservableObject
     partial void OnSelectedAudioDeviceChanged(AudioDeviceInfo? value)
     {
         HasDevice = value != null && !string.IsNullOrEmpty(value.Id);
+        // Capture the user's intent — but only when the change comes with a
+        // real value. The refresh path assigns null when the device the user
+        // wanted is currently unavailable; that must NOT erase the desired ID,
+        // otherwise re-plugging the device can't restore the mapping. User
+        // picks always carry a non-null value (the "(No mapping)" sentinel
+        // included — its Id is "").
+        if (value != null)
+            DesiredAudioDeviceId = value.Id;
         MappingChanged?.Invoke();
     }
 
@@ -68,8 +90,19 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly AudioRouterService _routerService;
     private readonly RoutingEngine _routingEngine;
     private readonly SettingsService _settingsService;
+    private readonly AudioDeviceNotifier _deviceNotifier;
+    private readonly DispatcherTimer _deviceRefreshTimer;
     private readonly Dispatcher _dispatcher;
     private bool _isLoading;
+    // Volatile: read on the COM RPC thread in OnDeviceChangeDetected, written
+    // on the UI thread in Dispose(). Without the barrier a late callback can
+    // miss the write and queue dispatcher work during shutdown.
+    private volatile bool _disposed;
+
+    // Debounce window for coalescing bursts of device events. Plugging in a USB
+    // DAC routinely fires OnDeviceAdded + OnDeviceStateChanged + OnDefaultDeviceChanged
+    // back-to-back; without this we'd rebuild the dropdown three times in a row.
+    private static readonly TimeSpan DeviceRefreshDebounce = TimeSpan.FromMilliseconds(300);
 
     private const string AutoStartRegistryKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string AppRegistryName = "AudioMonitorRouter";
@@ -119,6 +152,20 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         _routingEngine.SessionsUpdated += OnSessionsUpdated;
 
+        // Debounced timer for device hot-plug refreshes. Constructed bound to the
+        // UI dispatcher so the Tick handler runs on the UI thread and can safely
+        // mutate the AudioDevices ObservableCollection.
+        _deviceRefreshTimer = new DispatcherTimer(DispatcherPriority.Background, _dispatcher)
+        {
+            Interval = DeviceRefreshDebounce
+        };
+        _deviceRefreshTimer.Tick += OnDeviceRefreshTimerTick;
+
+        _deviceNotifier = new AudioDeviceNotifier();
+        _deviceNotifier.DevicesChanged += OnDeviceChangeDetected;
+        _deviceNotifier.DefaultDeviceChanged += OnDeviceChangeDetected;
+        _deviceNotifier.Start();
+
         LoadDevicesAndMonitors();
         LoadSettings();
     }
@@ -148,6 +195,91 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         DeviceCount = AudioDevices.Count - 1;
     }
 
+    /// <summary>
+    /// Hot-plug entry point. Runs on a COM RPC thread. All it does is restart
+    /// the debounce timer on the UI thread — the actual refresh happens once
+    /// the burst of events settles.
+    /// </summary>
+    private void OnDeviceChangeDetected()
+    {
+        if (_disposed) return;
+
+        _dispatcher.BeginInvoke(() =>
+        {
+            if (_disposed) return;
+            // Stop+Start resets the elapsed time, so rapid-fire events keep
+            // pushing the refresh out until the stream quiets down.
+            _deviceRefreshTimer.Stop();
+            _deviceRefreshTimer.Start();
+        });
+    }
+
+    private void OnDeviceRefreshTimerTick(object? sender, EventArgs e)
+    {
+        _deviceRefreshTimer.Stop();
+        if (_disposed) return;
+        RefreshAudioDevicesPreservingSelections();
+    }
+
+    /// <summary>
+    /// Rebuilds <see cref="AudioDevices"/> from the current endpoint list while
+    /// preserving per-monitor selections wherever the same device ID is still
+    /// present. Devices that disappeared leave their monitor's selection at
+    /// null — the dropdown reflects reality rather than showing a ghost — but
+    /// the desired ID stays on each monitor VM, so re-plugging the device
+    /// restores the mapping on the next refresh. Must be called on the UI thread.
+    /// </summary>
+    private void RefreshAudioDevicesPreservingSelections()
+    {
+        // Snapshot the user's intent (DesiredAudioDeviceId), not the live
+        // SelectedAudioDevice — otherwise an unplug-then-replug cycle erases
+        // the mapping: the unplug refresh nulls SelectedAudioDevice, and the
+        // replug refresh would then snapshot string.Empty and have nothing to
+        // restore. Snapshotting intent makes the round-trip lossless.
+        var desiredByMonitor = Monitors.ToDictionary(
+            m => m.Monitor.DeviceName,
+            m => m.DesiredAudioDeviceId);
+
+        // _isLoading suppresses SaveSettings while we mutate selections
+        // programmatically — a hot-plug must not overwrite the user's saved
+        // mappings just because a device went away.
+        _isLoading = true;
+        try
+        {
+            AudioDevices.Clear();
+            AudioDevices.Add(new AudioDeviceInfo { Id = string.Empty, FriendlyName = "(No mapping)" });
+            foreach (var device in _audioDeviceService.GetOutputDevices())
+                AudioDevices.Add(device);
+
+            DeviceCount = AudioDevices.Count - 1;
+
+            foreach (var monitorVm in Monitors)
+            {
+                if (!desiredByMonitor.TryGetValue(monitorVm.Monitor.DeviceName, out var desiredId))
+                    continue;
+
+                // Match by Id (not reference) — AudioDeviceInfo is rebuilt each
+                // refresh. If the device is gone, FirstOrDefault returns null;
+                // the OnSelectedAudioDeviceChanged guard keeps DesiredAudioDeviceId
+                // intact in that case so a future refresh can still resolve it.
+                monitorVm.SelectedAudioDevice = AudioDevices.FirstOrDefault(d => d.Id == desiredId);
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+
+        // Push to engine even if mappings didn't semantically change — a newly
+        // plugged device might make a previously-dangling mapping valid again,
+        // and a newly removed one needs the engine to stop trying to route to it.
+        PushMappingsToEngine();
+
+        // Re-sync sliders in case a re-plugged device has a different volume
+        // than the one we last remembered.
+        RefreshAssignedVolumes();
+    }
+
     private void LoadSettings()
     {
         _isLoading = true;
@@ -160,6 +292,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 var monitorVm = Monitors.FirstOrDefault(m => m.Monitor.DeviceName == mapping.MonitorDeviceName);
                 if (monitorVm != null)
                 {
+                    // Set DesiredAudioDeviceId unconditionally so a hot-plug
+                    // later in the session can resolve a device that was missing
+                    // at app start. SelectedAudioDevice only gets set when the
+                    // device is actually present right now.
+                    monitorVm.DesiredAudioDeviceId = mapping.AudioDeviceId;
                     var device = AudioDevices.FirstOrDefault(d => d.Id == mapping.AudioDeviceId);
                     if (device != null)
                         monitorVm.SelectedAudioDevice = device;
@@ -176,15 +313,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 _ => 0
             };
 
-            // Read current volume from each assigned device
-            foreach (var m in Monitors)
-            {
-                if (m.SelectedAudioDevice != null && !string.IsNullOrEmpty(m.SelectedAudioDevice.Id))
-                {
-                    var vol = _audioDeviceService.GetDeviceVolume(m.SelectedAudioDevice.Id);
-                    m.Volume = (int)Math.Round(vol * 100);
-                }
-            }
+            RefreshAssignedVolumes();
 
             PushMappingsToEngine();
             IsRoutingEnabled = settings.IsEnabled;
@@ -197,11 +326,27 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void OnMappingChanged()
     {
-        PushMappingsToEngine();
-        if (!_isLoading)
-            SaveSettings();
+        // During programmatic refreshes (LoadSettings, hot-plug refresh, Refresh
+        // command) selections are assigned in a loop. Running the full push-mappings
+        // + volume-read fanout for each one would do O(N²) NAudio COM calls on the
+        // UI thread and fire N half-built routing pushes. Each programmatic caller
+        // is responsible for invoking PushMappingsToEngine + RefreshAssignedVolumes
+        // itself, once, after its loop finishes.
+        if (_isLoading) return;
 
-        // Read the current volume from the newly selected device
+        PushMappingsToEngine();
+        SaveSettings();
+        RefreshAssignedVolumes();
+    }
+
+    /// <summary>
+    /// Reads the current master volume from each monitor's assigned audio device
+    /// and syncs it to the monitor's <c>Volume</c> slider. Runs on the UI thread;
+    /// each call makes one NAudio COM round-trip per assigned device, so callers
+    /// should run it once after a batch of selection changes rather than per-change.
+    /// </summary>
+    private void RefreshAssignedVolumes()
+    {
         foreach (var m in Monitors)
         {
             if (m.SelectedAudioDevice != null && !string.IsNullOrEmpty(m.SelectedAudioDevice.Id))
@@ -243,12 +388,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             MinimizeOnClose = MinimizeOnClose,
             StartMinimized = StartMinimized,
             ThemeMode = SelectedThemeIndex switch { 1 => "Light", 2 => "Dark", _ => "System" },
+            // Persist user intent (DesiredAudioDeviceId), not the live SelectedAudioDevice.
+            // Otherwise a Save triggered while a device is temporarily unplugged
+            // (e.g. the user toggles AutoStartWithWindows during a hot-unplug)
+            // would write that mapping out of the file permanently.
             Mappings = Monitors
-                .Where(m => m.SelectedAudioDevice != null && !string.IsNullOrEmpty(m.SelectedAudioDevice.Id))
+                .Where(m => !string.IsNullOrEmpty(m.DesiredAudioDeviceId))
                 .Select(m => new MonitorAudioMapping
                 {
                     MonitorDeviceName = m.Monitor.DeviceName,
-                    AudioDeviceId = m.SelectedAudioDevice!.Id
+                    AudioDeviceId = m.DesiredAudioDeviceId
                 })
                 .ToList()
         };
@@ -329,9 +478,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         if (wasRunning)
             _routingEngine.Stop();
 
-        var currentMappings = Monitors
-            .Where(m => m.SelectedAudioDevice != null && !string.IsNullOrEmpty(m.SelectedAudioDevice.Id))
-            .ToDictionary(m => m.Monitor.DeviceName, m => m.SelectedAudioDevice!.Id);
+        // Snapshot intent (DesiredAudioDeviceId) rather than current resolved
+        // selection — a missing device's mapping should survive a manual
+        // refresh the same way it survives a hot-plug refresh.
+        var desiredByMonitor = Monitors.ToDictionary(
+            m => m.Monitor.DeviceName,
+            m => m.DesiredAudioDeviceId);
 
         LoadDevicesAndMonitors();
 
@@ -340,13 +492,18 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             foreach (var monitorVm in Monitors)
             {
-                if (currentMappings.TryGetValue(monitorVm.Monitor.DeviceName, out var deviceId))
-                {
-                    var device = AudioDevices.FirstOrDefault(d => d.Id == deviceId);
-                    if (device != null)
-                        monitorVm.SelectedAudioDevice = device;
-                }
+                if (!desiredByMonitor.TryGetValue(monitorVm.Monitor.DeviceName, out var desiredId))
+                    continue;
+
+                // Re-seed the desired ID first — LoadDevicesAndMonitors built
+                // brand-new MonitorMappingViewModel instances with empty defaults.
+                monitorVm.DesiredAudioDeviceId = desiredId;
+                monitorVm.SelectedAudioDevice = AudioDevices.FirstOrDefault(d => d.Id == desiredId);
             }
+
+            // OnMappingChanged is suppressed under _isLoading, so read volumes
+            // explicitly — sliders would otherwise show their default of 100.
+            RefreshAssignedVolumes();
         }
         finally
         {
@@ -419,6 +576,19 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
+
+        // Unsubscribe + dispose the notifier BEFORE stopping the timer so any
+        // late COM-thread callback that was already queued observes _disposed
+        // and bails instead of kicking the timer from a background thread.
+        _deviceNotifier.DevicesChanged -= OnDeviceChangeDetected;
+        _deviceNotifier.DefaultDeviceChanged -= OnDeviceChangeDetected;
+        _deviceNotifier.Dispose();
+
+        _deviceRefreshTimer.Stop();
+        _deviceRefreshTimer.Tick -= OnDeviceRefreshTimerTick;
+
         _routingEngine.SessionsUpdated -= OnSessionsUpdated;
 
         // Reset all audio routing back to system defaults

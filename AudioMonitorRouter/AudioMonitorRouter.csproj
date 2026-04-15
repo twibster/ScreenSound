@@ -12,6 +12,19 @@
     <SupportedOSPlatform>windows10.0.17763.0</SupportedOSPlatform>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <NoWarn>WFAC010</NoWarn>
+
+    <!-- Assembly metadata - shown in file properties & installer -->
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Product>Audio Monitor Router</Product>
+    <AssemblyTitle>Audio Monitor Router</AssemblyTitle>
+    <Authors>twibster</Authors>
+    <Company>twibster</Company>
+    <Description>Automatically routes per-app audio to different speakers based on monitor placement on Windows 11.</Description>
+    <Copyright>Copyright (c) 2026 twibster</Copyright>
+    <RepositoryUrl>https://github.com/twibster/AudioMonitorRouter</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
   <ItemGroup>

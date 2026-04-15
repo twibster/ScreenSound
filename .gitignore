@@ -68,6 +68,9 @@ PublishScripts/
 *.pubxml
 *.publishproj
 
+# Inno Setup installer output
+installer/Output/
+
 # Testing
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*

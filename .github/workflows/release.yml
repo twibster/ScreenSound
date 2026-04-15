@@ -65,7 +65,7 @@ jobs:
           Write-Host "Building version $version (event=${{ github.event_name }})"
 
       - name: Restore
-        run: dotnet restore AudioMonitorRouter.sln
+        run: dotnet restore ScreenSound.sln
 
       - name: Publish framework-dependent (win-x64)
         # Framework-dependent: ~6 MB output vs ~85 MB self-contained. The installer
@@ -74,7 +74,7 @@ jobs:
         # DirectWrite factory init — see https://github.com/dotnet/wpf/issues/6792
         shell: pwsh
         run: |
-          dotnet publish AudioMonitorRouter\AudioMonitorRouter.csproj `
+          dotnet publish ScreenSound\ScreenSound.csproj `
             -c Release `
             -r win-x64 `
             --self-contained false `
@@ -86,7 +86,7 @@ jobs:
       - name: Package portable zip
         shell: pwsh
         run: |
-          $zipName = "AudioMonitorRouter-${{ steps.version.outputs.VERSION }}-portable.zip"
+          $zipName = "ScreenSound-${{ steps.version.outputs.VERSION }}-portable.zip"
           Compress-Archive -Path "publish\*" -DestinationPath "publish\$zipName"
           Write-Host "Created $zipName"
 
@@ -100,13 +100,13 @@ jobs:
       - name: Upload portable build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AudioMonitorRouter-portable
-          path: publish\AudioMonitorRouter-${{ steps.version.outputs.VERSION }}-portable.zip
+          name: ScreenSound-portable
+          path: publish\ScreenSound-${{ steps.version.outputs.VERSION }}-portable.zip
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AudioMonitorRouter-installer
+          name: ScreenSound-installer
           path: installer\Output\*.exe
 
       - name: Create GitHub Release
@@ -134,5 +134,5 @@ jobs:
           prerelease: false
           generate_release_notes: true
           files: |
-            publish/AudioMonitorRouter-${{ steps.version.outputs.VERSION }}-portable.zip
+            publish/ScreenSound-${{ steps.version.outputs.VERSION }}-portable.zip
             installer/Output/*.exe

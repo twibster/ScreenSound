@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
-    <RootNamespace>AudioMonitorRouter.Tools.IconBuilder</RootNamespace>
+    <RootNamespace>ScreenSound.Tools.IconBuilder</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- This tool is developer-only; keep it out of the main solution. -->

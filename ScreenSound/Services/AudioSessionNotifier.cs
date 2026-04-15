@@ -1,6 +1,6 @@
 using NAudio.CoreAudioApi;
 
-namespace AudioMonitorRouter.Services;
+namespace ScreenSound.Services;
 
 /// <summary>
 /// Subscribes to <see cref="AudioSessionManager.OnSessionCreated"/> across all

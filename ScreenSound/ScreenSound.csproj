@@ -23,7 +23,7 @@
     <Company>twibster</Company>
     <Description>Automatically routes per-app audio to different speakers based on monitor placement on Windows 11.</Description>
     <Copyright>Copyright (c) 2026 Omar Omran</Copyright>
-    <RepositoryUrl>https://github.com/twibster/AudioMonitorRouter</RepositoryUrl>
+    <RepositoryUrl>https://github.com/twibster/ScreenSound</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 

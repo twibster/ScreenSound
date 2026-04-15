@@ -1,10 +1,10 @@
-using AudioMonitorRouter.Interop;
-using AudioMonitorRouter.Views;
+using ScreenSound.Interop;
+using ScreenSound.Views;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 
-namespace AudioMonitorRouter;
+namespace ScreenSound;
 
 public partial class App : Application
 {

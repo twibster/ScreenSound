@@ -1,8 +1,8 @@
-<wpfui:UiWindow x:Class="AudioMonitorRouter.Views.MainWindow"
+<wpfui:UiWindow x:Class="ScreenSound.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:wpfui="http://schemas.lepo.co/wpfui/2022/xaml"
-        xmlns:vm="clr-namespace:AudioMonitorRouter.ViewModels"
+        xmlns:vm="clr-namespace:ScreenSound.ViewModels"
         Title="Audio Monitor Router"
         Height="720" Width="900"
         MinHeight="560" MinWidth="720"
@@ -539,11 +539,11 @@
                                 <TextBlock Text="Links" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
                                 <wpfui:Hyperlink Content="Project website on GitHub"
                                                  Icon="Link24"
-                                                 NavigateUri="https://github.com/twibster/AudioMonitorRouter"
+                                                 NavigateUri="https://github.com/twibster/ScreenSound"
                                                  HorizontalAlignment="Left" Padding="8,2"/>
                                 <wpfui:Hyperlink Content="Latest release on GitHub"
                                                  Icon="Link24"
-                                                 NavigateUri="https://github.com/twibster/AudioMonitorRouter/releases/latest"
+                                                 NavigateUri="https://github.com/twibster/ScreenSound/releases/latest"
                                                  HorizontalAlignment="Left" Padding="8,2"/>
 
                                 <!-- ── Update check ─────────────────────────────────

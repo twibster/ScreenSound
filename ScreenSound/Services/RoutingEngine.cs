@@ -1,9 +1,9 @@
-using AudioMonitorRouter.Interop;
-using AudioMonitorRouter.Models;
+using ScreenSound.Interop;
+using ScreenSound.Models;
 using Microsoft.Win32;
 using System.Collections.Concurrent;
 
-namespace AudioMonitorRouter.Services;
+namespace ScreenSound.Services;
 
 /// <summary>
 /// Drives audio routing in response to signals:

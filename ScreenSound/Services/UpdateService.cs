@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace AudioMonitorRouter.Services;
+namespace ScreenSound.Services;
 
 /// <summary>
 /// Outcome of an update probe. The About page binds its status text to one of
@@ -41,7 +41,7 @@ public class UpdateService
     // Public, unauthenticated endpoint — rate-limited to 60 requests/hour per IP,
     // which is plenty for a user-initiated "check for updates" button.
     private const string LatestReleaseApi =
-        "https://api.github.com/repos/twibster/AudioMonitorRouter/releases/latest";
+        "https://api.github.com/repos/twibster/ScreenSound/releases/latest";
 
     // GitHub requires a User-Agent on every request; the product name is also
     // useful in their server logs if we ever need to correlate a rate-limit bug
@@ -53,8 +53,8 @@ public class UpdateService
 
     private static ProductInfoHeaderValue BuildUserAgent()
     {
-        try { return new ProductInfoHeaderValue("AudioMonitorRouter", GetInformationalVersion()); }
-        catch { return new ProductInfoHeaderValue("AudioMonitorRouter", "1.0"); }
+        try { return new ProductInfoHeaderValue("ScreenSound", GetInformationalVersion()); }
+        catch { return new ProductInfoHeaderValue("ScreenSound", "1.0"); }
     }
 
     /// <summary>
@@ -118,7 +118,7 @@ public class UpdateService
             // legally contain characters (/, #, spaces) that would otherwise
             // break the path segment.
             string releaseUrl = release.HtmlUrl ??
-                $"https://github.com/twibster/AudioMonitorRouter/releases/tag/{Uri.EscapeDataString(release.TagName)}";
+                $"https://github.com/twibster/ScreenSound/releases/tag/{Uri.EscapeDataString(release.TagName)}";
 
             return CompareSemVer(latest, current) > 0
                 ? new UpdateCheckResult.UpdateAvailable(current, latest, releaseUrl)

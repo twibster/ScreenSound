@@ -1,14 +1,14 @@
-using AudioMonitorRouter.Models;
+using ScreenSound.Models;
 using System.IO;
 using System.Text.Json;
 
-namespace AudioMonitorRouter.Services;
+namespace ScreenSound.Services;
 
 public class SettingsService
 {
     private static readonly string SettingsDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "AudioMonitorRouter");
+        "ScreenSound");
 
     private static readonly string SettingsFile = Path.Combine(SettingsDir, "settings.json");
 

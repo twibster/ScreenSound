@@ -21,7 +21,7 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Restore
-        run: dotnet restore AudioMonitorRouter.sln
+        run: dotnet restore ScreenSound.sln
 
       - name: Build
-        run: dotnet build AudioMonitorRouter.sln -c Release --no-restore
+        run: dotnet build ScreenSound.sln -c Release --no-restore

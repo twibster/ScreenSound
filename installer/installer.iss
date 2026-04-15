@@ -7,9 +7,9 @@
 ; keeping our installer ~10x smaller than a self-contained build.
 
 #define MyAppName "Audio Monitor Router"
-#define MyAppExeName "AudioMonitorRouter.exe"
+#define MyAppExeName "ScreenSound.exe"
 #define MyAppPublisher "twibster"
-#define MyAppURL "https://github.com/twibster/AudioMonitorRouter"
+#define MyAppURL "https://github.com/twibster/ScreenSound"
 
 ; Version comes from the APP_VERSION env var (set by CI). Fallback for local runs.
 #define MyAppVersion GetEnv("APP_VERSION")
@@ -50,11 +50,11 @@ PrivilegesRequired=admin
 PrivilegesRequiredOverridesAllowed=dialog
 
 OutputDir=Output
-OutputBaseFilename=AudioMonitorRouter-Setup-{#MyAppVersion}
+OutputBaseFilename=ScreenSound-Setup-{#MyAppVersion}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
-SetupIconFile=..\AudioMonitorRouter\app.ico
+SetupIconFile=..\ScreenSound\app.ico
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -73,7 +73,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Registry]
 ; Opt-in auto-start via Run key. App's own "Run at startup" setting can override this later.
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "AudioMonitorRouter"; ValueData: """{app}\{#MyAppExeName}"""; Flags: uninsdeletevalue; Tasks: startupicon
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "ScreenSound"; ValueData: """{app}\{#MyAppExeName}"""; Flags: uninsdeletevalue; Tasks: startupicon
 
 [Run]
 ; Silent-install the .NET 8 Desktop Runtime if we had to download it.
@@ -98,7 +98,7 @@ Filename: "{cmd}"; Parameters: "/C taskkill /F /IM {#MyAppExeName}"; Flags: runh
 
 [UninstallDelete]
 ; Remove the per-user settings folder on uninstall
-Type: filesandordirs; Name: "{userappdata}\AudioMonitorRouter"
+Type: filesandordirs; Name: "{userappdata}\ScreenSound"
 
 [Code]
 var

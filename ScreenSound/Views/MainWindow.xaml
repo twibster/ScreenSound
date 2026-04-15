@@ -89,6 +89,12 @@
                 </StackPanel>
             </RadioButton>
 
+            <!--
+                 Bottom-docked children stack upward from the bottom in XAML order:
+                 About docks first → very bottom; Donate next → above About;
+                 Settings last → above Donate. Visual top-to-bottom in the
+                 sidebar's bottom cluster is Settings, Donate, About.
+            -->
             <RadioButton DockPanel.Dock="Bottom" GroupName="Nav"
                          Checked="NavButton_Checked" Tag="3"
                          Style="{StaticResource SidebarNavButton}">
@@ -96,6 +102,17 @@
                     <wpfui:SymbolIcon Symbol="Info24" FontSize="22" HorizontalAlignment="Center"
                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                     <TextBlock Text="About" FontSize="10" HorizontalAlignment="Center" Margin="0,4,0,0"
+                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                </StackPanel>
+            </RadioButton>
+
+            <RadioButton DockPanel.Dock="Bottom" GroupName="Nav"
+                         Checked="NavButton_Checked" Tag="4"
+                         Style="{StaticResource SidebarNavButton}">
+                <StackPanel HorizontalAlignment="Center">
+                    <wpfui:SymbolIcon Symbol="Heart24" FontSize="22" HorizontalAlignment="Center"
+                                      Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                    <TextBlock Text="Donate" FontSize="10" HorizontalAlignment="Center" Margin="0,4,0,0"
                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                 </StackPanel>
             </RadioButton>
@@ -592,6 +609,80 @@
                                                  NavigateUri="{Binding LatestReleaseUrl}"
                                                  HorizontalAlignment="Left"
                                                  Visibility="{Binding LatestReleaseUrl, Converter={StaticResource StringToVisibilityConverter}}"/>
+                            </StackPanel>
+                        </wpfui:Card>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <!-- ═══ DONATE PAGE ═══ -->
+            <Border x:Name="DonatePage" Visibility="Collapsed" Opacity="0">
+                <Border.RenderTransform><TranslateTransform/></Border.RenderTransform>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24,20,24,8">
+                    <StackPanel>
+                        <TextBlock Text="Donate" FontSize="20" FontWeight="Medium" Margin="0,0,0,16"/>
+                        <wpfui:Card Padding="24">
+                            <StackPanel>
+                                <!-- ── Header: accent heart + section title ─────────
+                                     Mirrors the About page's header pattern (icon +
+                                     identity block) so the two bottom-cluster pages
+                                     read as visually related.
+                                -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                                    <wpfui:SymbolIcon Symbol="Heart24" FontSize="28"
+                                                      Foreground="{DynamicResource SystemAccentColorPrimaryBrush}"
+                                                      VerticalAlignment="Center" Margin="0,0,14,0"/>
+                                    <TextBlock Text="Support ScreenSound" FontSize="16" FontWeight="SemiBold"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <TextBlock TextWrapping="Wrap" FontSize="13"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                           Margin="0,0,0,20">
+                                    ScreenSound is a solo developer project built in spare time. If it's
+                                    made your multi-monitor setup a little nicer, a one-off tip helps
+                                    justify the hours spent on bug fixes and new features — the app
+                                    stays free either way.
+                                </TextBlock>
+
+                                <!-- Ko-fi CTA — the official branded "Buy me a coffee" button
+                                     image from Ko-fi's CDN, bundled as a WPF Resource (see
+                                     csproj) so it renders offline.
+
+                                     The Template is stripped to a bare ContentPresenter so the
+                                     image IS the button face: no default WPF button chrome,
+                                     no hover rectangle painting over the yellow Ko-fi art.
+                                     Hover / pressed feedback is done via Opacity on the outer
+                                     Border so the branded colours stay intact while still
+                                     giving the user "this is clickable" affordance.
+
+                                     Cursor=Hand and AutomationProperties.Name give mouse +
+                                     screen-reader affordances the bare image wouldn't carry.
+                                     ToolTip spells out the destination so users can see where
+                                     a click will take them before committing. -->
+                                <Button Click="KofiDonate_Click"
+                                        HorizontalAlignment="Left" Cursor="Hand"
+                                        ToolTip="Opens ko-fi.com/twibster in your browser"
+                                        AutomationProperties.Name="Donate via Ko-fi — opens ko-fi.com/twibster in your browser">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="Root" Background="Transparent">
+                                                <ContentPresenter HorizontalAlignment="Center"
+                                                                  VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Root" Property="Opacity" Value="0.85"/>
+                                                </Trigger>
+                                                <Trigger Property="IsPressed" Value="True">
+                                                    <Setter TargetName="Root" Property="Opacity" Value="0.7"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                    <Image Source="/Assets/kofi-button.png" Width="200"
+                                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Button>
                             </StackPanel>
                         </wpfui:Card>
                     </StackPanel>

@@ -80,56 +80,130 @@ public class RoutingEngine : IDisposable
     /// (the WPF UI thread) because <see cref="WinEventHook"/> needs one to
     /// receive out-of-context callbacks.
     /// </summary>
+    /// <remarks>
+    /// Construction builds everything into locals first so a failure partway
+    /// through (e.g. <c>SetWinEventHook</c> returning NULL, or the audio
+    /// service being unavailable) can unwind cleanly without leaving hooks
+    /// registered in the OS or half-initialized fields hanging around for the
+    /// next <c>Start()</c> call to overwrite.
+    /// </remarks>
     public void Start()
     {
         if (IsRunning) return;
 
-        _cts = new CancellationTokenSource();
-        _signal = new SemaphoreSlim(initialCount: 0);
+        var cts = new CancellationTokenSource();
+        var signal = new SemaphoreSlim(initialCount: 0);
 
-        // Window-move / snap / maximize-restore end — the main "user dragged this to another monitor" signal.
-        _moveResizeHook = new WinEventHook(
-            WinEventHook.EVENT_SYSTEM_MOVESIZEEND,
-            WinEventHook.EVENT_SYSTEM_MOVESIZEEND,
-            Trigger);
+        // All signal sources release the same semaphore. Captured as a local
+        // closure so the callbacks don't depend on the eventual field value
+        // (which Stop() nulls out — we don't want callbacks firing on a
+        // replaced or nulled field in the middle of a restart).
+        Action release = () => { try { signal.Release(); } catch { /* disposed */ } };
 
-        // Foreground change — covers alt-tab and apps that move their own windows programmatically.
-        // Debouncing in the work loop keeps this cheap even though FOREGROUND can fire frequently.
-        _foregroundHook = new WinEventHook(
-            WinEventHook.EVENT_SYSTEM_FOREGROUND,
-            WinEventHook.EVENT_SYSTEM_FOREGROUND,
-            Trigger);
+        WinEventHook? moveResizeHook = null;
+        WinEventHook? foregroundHook = null;
+        AudioSessionNotifier? sessionNotifier = null;
 
-        _sessionNotifier = new AudioSessionNotifier(Trigger);
-        _sessionNotifier.Start();
+        try
+        {
+            // Window-move / snap / maximize-restore end — THE "user dragged this to another monitor" signal.
+            moveResizeHook = new WinEventHook(
+                WinEventHook.EVENT_SYSTEM_MOVESIZEEND,
+                WinEventHook.EVENT_SYSTEM_MOVESIZEEND,
+                release);
+
+            // Foreground change — covers alt-tab and apps that move their own windows programmatically.
+            // Debouncing in the work loop keeps this cheap even though FOREGROUND can fire frequently.
+            foregroundHook = new WinEventHook(
+                WinEventHook.EVENT_SYSTEM_FOREGROUND,
+                WinEventHook.EVENT_SYSTEM_FOREGROUND,
+                release);
+
+            sessionNotifier = new AudioSessionNotifier(release);
+            sessionNotifier.Start();
+        }
+        catch
+        {
+            // Roll back anything that was created before the failure.
+            sessionNotifier?.Dispose();
+            foregroundHook?.Dispose();
+            moveResizeHook?.Dispose();
+            signal.Dispose();
+            cts.Dispose();
+            throw;
+        }
 
         SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
 
-        _workTask = Task.Run(() => WorkLoop(_cts.Token));
+        // Pass signal + token by value so the loop doesn't read instance fields
+        // that Stop() might mutate concurrently.
+        var workTask = Task.Run(() => WorkLoop(signal, cts.Token));
+
+        // Commit to instance state only after everything succeeded.
+        _cts = cts;
+        _signal = signal;
+        _moveResizeHook = moveResizeHook;
+        _foregroundHook = foregroundHook;
+        _sessionNotifier = sessionNotifier;
+        _workTask = workTask;
 
         // Kick off one immediate pass so the UI populates without waiting for an event.
-        Trigger();
+        release();
     }
 
+    /// <summary>
+    /// Stops the engine and waits briefly for the background loop to exit
+    /// before disposing shared state. Safe to call repeatedly; safe to call
+    /// concurrently with a subsequent <see cref="Start"/> (the old loop observes
+    /// cancellation and exits against its own captured semaphore, not the new one).
+    /// </summary>
     public void Stop()
     {
-        SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
+        // Snapshot current state then null the fields FIRST, so any concurrent
+        // Trigger()/Start() sees "no engine running" and operates on its own
+        // fresh resources rather than racing on the ones we're about to dispose.
+        var cts = _cts;
+        var signal = _signal;
+        var workTask = _workTask;
+        var moveResizeHook = _moveResizeHook;
+        var foregroundHook = _foregroundHook;
+        var sessionNotifier = _sessionNotifier;
 
-        _foregroundHook?.Dispose();
-        _foregroundHook = null;
-        _moveResizeHook?.Dispose();
+        _cts = null;
+        _signal = null;
+        _workTask = null;
         _moveResizeHook = null;
-
-        _sessionNotifier?.Dispose();
+        _foregroundHook = null;
         _sessionNotifier = null;
 
-        _cts?.Cancel();
-        // Wake the loop so it can observe cancellation immediately.
-        try { _signal?.Release(); } catch { }
+        SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
 
-        _workTask = null;
-        _signal?.Dispose();
-        _signal = null;
+        // Unhook OS / NAudio callbacks before we tear down the semaphore they
+        // write to — prevents a late callback hitting a disposed semaphore.
+        foregroundHook?.Dispose();
+        moveResizeHook?.Dispose();
+        sessionNotifier?.Dispose();
+
+        try { cts?.Cancel(); } catch { /* disposed */ }
+        // Wake the loop so it observes cancellation immediately instead of
+        // sitting in WaitAsync for the full heartbeat interval.
+        try { signal?.Release(); } catch { /* disposed */ }
+
+        // Wait for the loop to actually exit before disposing what it's reading.
+        // Bounded: if something wedges, we log and move on rather than hang forever.
+        if (workTask != null)
+        {
+            try
+            {
+                if (!workTask.Wait(TimeSpan.FromSeconds(3)))
+                    System.Diagnostics.Debug.WriteLine("RoutingEngine: work loop did not exit within 3s");
+            }
+            catch { /* task faulted — we own cleanup anyway */ }
+        }
+
+        signal?.Dispose();
+        cts?.Dispose();
+
         _lastRoutedDevice.Clear();
     }
 
@@ -149,14 +223,18 @@ public class RoutingEngine : IDisposable
         Trigger();
     }
 
-    private async Task WorkLoop(CancellationToken ct)
+    // Takes signal + token as parameters (rather than reading the fields) so that
+    // Stop() can safely null the fields without the loop dereferencing them
+    // concurrently. The loop always operates on the exact semaphore/CTS it was
+    // launched with — any overlap with a subsequent Start() is harmless.
+    private async Task WorkLoop(SemaphoreSlim signal, CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
         {
             try
             {
                 // Wait for a signal OR the heartbeat timeout, whichever comes first.
-                bool signaled = await _signal!.WaitAsync(HeartbeatInterval, ct).ConfigureAwait(false);
+                bool signaled = await signal.WaitAsync(HeartbeatInterval, ct).ConfigureAwait(false);
 
                 if (ct.IsCancellationRequested) break;
 
@@ -166,7 +244,7 @@ public class RoutingEngine : IDisposable
                     // so a burst of events (drag end + foreground change + session created) runs
                     // the cycle exactly once.
                     await Task.Delay(DebounceMs, ct).ConfigureAwait(false);
-                    while (await _signal!.WaitAsync(0, ct).ConfigureAwait(false)) { }
+                    while (await signal.WaitAsync(0, ct).ConfigureAwait(false)) { }
                 }
 
                 PerformRoutingCycle();
@@ -280,7 +358,7 @@ public class RoutingEngine : IDisposable
 
     public void Dispose()
     {
+        // Stop() disposes CTS + signal itself now, so this is just a one-liner.
         Stop();
-        _cts?.Dispose();
     }
 }

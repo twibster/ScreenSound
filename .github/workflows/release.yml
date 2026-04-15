@@ -121,7 +121,7 @@ jobs:
         # github.event_name here is the caller's trigger ('pull_request'), not
         # 'workflow_call'. Only the manual dispatch path needs to skip.
         if: github.event_name != 'workflow_dispatch'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: v${{ steps.version.outputs.VERSION }}
           tag_name: v${{ steps.version.outputs.VERSION }}

@@ -1,9 +1,9 @@
-<wpfui:UiWindow x:Class="AudioMonitorRouter.Views.MainWindow"
+<wpfui:UiWindow x:Class="ScreenSound.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:wpfui="http://schemas.lepo.co/wpfui/2022/xaml"
-        xmlns:vm="clr-namespace:AudioMonitorRouter.ViewModels"
-        Title="Audio Monitor Router"
+        xmlns:vm="clr-namespace:ScreenSound.ViewModels"
+        Title="ScreenSound"
         Height="720" Width="900"
         MinHeight="560" MinWidth="720"
         WindowStartupLocation="CenterScreen"
@@ -62,7 +62,7 @@
 
         <!-- ── TITLE BAR ── -->
         <wpfui:TitleBar Grid.ColumnSpan="2" Grid.Row="0"
-                        Title="Audio Monitor Router"
+                        Title="ScreenSound"
                         ShowMinimize="True" ShowMaximize="True" ShowClose="True"/>
 
         <!-- ── SIDEBAR ── -->
@@ -516,7 +516,7 @@
                                            VerticalAlignment="Center" Margin="0,0,16,0"
                                            RenderOptions.BitmapScalingMode="HighQuality"/>
                                     <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="Audio Monitor Router" FontSize="18" FontWeight="SemiBold"/>
+                                        <TextBlock Text="ScreenSound" FontSize="18" FontWeight="SemiBold"/>
                                         <TextBlock Text="{Binding AppVersionDisplay}" FontSize="12"
                                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,2,0,0"/>
                                         <TextBlock Text="{Binding CopyrightDisplay}" FontSize="12"
@@ -539,11 +539,11 @@
                                 <TextBlock Text="Links" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
                                 <wpfui:Hyperlink Content="Project website on GitHub"
                                                  Icon="Link24"
-                                                 NavigateUri="https://github.com/twibster/AudioMonitorRouter"
+                                                 NavigateUri="https://github.com/twibster/ScreenSound"
                                                  HorizontalAlignment="Left" Padding="8,2"/>
                                 <wpfui:Hyperlink Content="Latest release on GitHub"
                                                  Icon="Link24"
-                                                 NavigateUri="https://github.com/twibster/AudioMonitorRouter/releases/latest"
+                                                 NavigateUri="https://github.com/twibster/ScreenSound/releases/latest"
                                                  HorizontalAlignment="Left" Padding="8,2"/>
 
                                 <!-- ── Update check ─────────────────────────────────

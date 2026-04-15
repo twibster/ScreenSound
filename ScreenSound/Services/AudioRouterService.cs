@@ -1,6 +1,6 @@
-using AudioMonitorRouter.Interop;
+using ScreenSound.Interop;
 
-namespace AudioMonitorRouter.Services;
+namespace ScreenSound.Services;
 
 public class AudioRouterService : IDisposable
 {

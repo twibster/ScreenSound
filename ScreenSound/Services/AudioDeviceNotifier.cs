@@ -1,7 +1,7 @@
 using NAudio.CoreAudioApi;
 using NAudio.CoreAudioApi.Interfaces;
 
-namespace AudioMonitorRouter.Services;
+namespace ScreenSound.Services;
 
 /// <summary>
 /// Subscribes to Core Audio endpoint notifications so the UI and routing engine

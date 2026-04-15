@@ -1,9 +1,9 @@
-using AudioMonitorRouter.Interop;
-using AudioMonitorRouter.Models;
+using ScreenSound.Interop;
+using ScreenSound.Models;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-namespace AudioMonitorRouter.Services;
+namespace ScreenSound.Services;
 
 public class MonitorService
 {

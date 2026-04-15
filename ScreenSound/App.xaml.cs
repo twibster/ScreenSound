@@ -1,15 +1,56 @@
-using AudioMonitorRouter.Interop;
-using AudioMonitorRouter.Views;
+using ScreenSound.Interop;
+using ScreenSound.Views;
 using System.Globalization;
+using System.Threading;
 using System.Windows;
 using System.Windows.Data;
 
-namespace AudioMonitorRouter;
+namespace ScreenSound;
 
 public partial class App : Application
 {
+    // Single-instance guard. Two ScreenSound processes would race on the
+    // same HKCU Run-at-startup state, both create tray icons, and both
+    // fight over the per-session audio-policy calls for the same sessions.
+    // The "Local\" prefix scopes the mutex to the current Windows login
+    // session, so fast-user-switching still lets each user have their own
+    // copy while a double-click on the shortcut won't spawn a second one.
+    private const string SingleInstanceMutexName = @"Local\ScreenSound-SingleInstance";
+    private static Mutex? _singleInstanceMutex;
+
     protected override void OnStartup(StartupEventArgs e)
     {
+        // Acquire the mutex FIRST, before any side effects (DPI config,
+        // window creation, tray icon). If another copy is already running
+        // we want to bail out cleanly with zero partial initialisation.
+        _singleInstanceMutex = new Mutex(initiallyOwned: false, name: SingleInstanceMutexName);
+        bool acquired;
+        try
+        {
+            acquired = _singleInstanceMutex.WaitOne(millisecondsTimeout: 0);
+        }
+        catch (AbandonedMutexException)
+        {
+            // Previous instance crashed without releasing. WaitOne still
+            // hands us ownership in that case, so treat as success — the
+            // mutex is now ours.
+            acquired = true;
+        }
+
+        if (!acquired)
+        {
+            MessageBox.Show(
+                "ScreenSound is already running — check the system tray.",
+                "ScreenSound",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+
+            _singleInstanceMutex.Dispose();
+            _singleInstanceMutex = null;
+            Shutdown();
+            return;
+        }
+
         // Force PerMonitorV2 DPI awareness before WPF creates any windows.
         try
         {
@@ -28,6 +69,22 @@ public partial class App : Application
             window.Show();
         }
         // Otherwise, tray icon is already set up — window stays hidden
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        // Release + dispose so an immediate relaunch can acquire cleanly.
+        // Without this, the OS would still reap the mutex on process exit,
+        // but explicit release avoids a brief race window where a fast
+        // double-click sees the mutex as still held.
+        if (_singleInstanceMutex != null)
+        {
+            try { _singleInstanceMutex.ReleaseMutex(); }
+            catch (ApplicationException) { /* Not owned (e.g. after an AbandonedMutexException path) — nothing to release. */ }
+            _singleInstanceMutex.Dispose();
+            _singleInstanceMutex = null;
+        }
+        base.OnExit(e);
     }
 }
 

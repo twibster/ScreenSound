@@ -1,4 +1,4 @@
-using AudioMonitorRouter.ViewModels;
+using ScreenSound.ViewModels;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -11,7 +11,7 @@ using Forms = System.Windows.Forms;
 using Drawing = System.Drawing;
 using WpfMenuItem = System.Windows.Controls.MenuItem;
 
-namespace AudioMonitorRouter.Views;
+namespace ScreenSound.Views;
 
 public partial class MainWindow : UiWindow
 {
@@ -120,7 +120,7 @@ public partial class MainWindow : UiWindow
             _trayIcon.Icon = Drawing.SystemIcons.Application;
         }
 
-        _trayIcon.Text = "Audio Monitor Router";
+        _trayIcon.Text = "ScreenSound";
         _trayIcon.Visible = true;
 
         var menu = new Forms.ContextMenuStrip();

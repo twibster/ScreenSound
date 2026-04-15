@@ -1,7 +1,7 @@
-using AudioMonitorRouter.Models;
+using ScreenSound.Models;
 using NAudio.CoreAudioApi;
 
-namespace AudioMonitorRouter.Services;
+namespace ScreenSound.Services;
 
 public class AudioDeviceService : IDisposable
 {

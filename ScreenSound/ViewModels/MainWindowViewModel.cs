@@ -1,5 +1,5 @@
-using AudioMonitorRouter.Models;
-using AudioMonitorRouter.Services;
+using ScreenSound.Models;
+using ScreenSound.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
@@ -11,7 +11,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
-namespace AudioMonitorRouter.ViewModels;
+namespace ScreenSound.ViewModels;
 
 public partial class MonitorMappingViewModel : ObservableObject
 {
@@ -135,7 +135,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private static readonly TimeSpan DeviceRefreshDebounce = TimeSpan.FromMilliseconds(300);
 
     private const string AutoStartRegistryKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string AppRegistryName = "AudioMonitorRouter";
+    private const string AppRegistryName = "ScreenSound";
 
     private readonly Dictionary<uint, ImageSource?> _iconCache = new();
 

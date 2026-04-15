@@ -1,8 +1,8 @@
-using AudioMonitorRouter.Models;
+using ScreenSound.Models;
 using NAudio.CoreAudioApi;
 using System.Diagnostics;
 
-namespace AudioMonitorRouter.Services;
+namespace ScreenSound.Services;
 
 public class AudioSessionService
 {

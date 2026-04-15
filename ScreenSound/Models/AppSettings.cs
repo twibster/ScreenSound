@@ -1,4 +1,4 @@
-namespace AudioMonitorRouter.Models;
+namespace ScreenSound.Models;
 
 public class AppSettings
 {

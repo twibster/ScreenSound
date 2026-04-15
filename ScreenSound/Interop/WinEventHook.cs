@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace AudioMonitorRouter.Interop;
+namespace ScreenSound.Interop;
 
 /// <summary>
 /// Thin wrapper around SetWinEventHook for observing global window events

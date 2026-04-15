@@ -3,11 +3,11 @@
 //
 //   dotnet run --project design/tools/IconBuilder -- \
 //       design/app-icon.svg \
-//       AudioMonitorRouter/app.ico
+//       ScreenSound/app.ico
 //
 //   dotnet run --project design/tools/IconBuilder -- \
 //       design/app-icon.svg \
-//       AudioMonitorRouter/Assets/app-icon.png
+//       ScreenSound/Assets/app-icon.png
 //
 // Why both formats:
 //   - .ico is the Windows shell icon (tray, taskbar, file explorer, installer).

@@ -25,6 +25,14 @@ on:
     types: [closed]
     branches: [main]
 
+# Serialize per branch so two near-simultaneous merges to main can't both
+# compute the same next version in parallel and race on the tag/release.
+# cancel-in-progress is intentionally false — a release in flight should
+# finish, not be killed mid-build by the next merge.
+concurrency:
+  group: auto-release-main
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -59,13 +67,21 @@ jobs:
           has_patch=$(echo "$LABELS" | grep -c '"name":"release:patch"' || true)
           has_skip=$(echo  "$LABELS" | grep -c '"name":"release:skip"'  || true)
 
+          bump_count=$(( has_major + has_minor + has_patch ))
+
+          # Reject contradictory combinations *before* honoring skip — otherwise
+          # adding both release:skip and release:patch silently picks skip,
+          # which masks the author's mistake.
+          if [ "$has_skip" -gt 0 ] && [ "$bump_count" -gt 0 ]; then
+            echo "::error::release:skip cannot be combined with release:major/minor/patch — pick one."
+            exit 1
+          fi
+
           if [ "$has_skip" -gt 0 ]; then
             echo "::notice::release:skip label present — skipping release"
             echo "should_release=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-
-          bump_count=$(( has_major + has_minor + has_patch ))
 
           if [ "$bump_count" -eq 0 ]; then
             echo "::notice::No release:* label on PR — skipping release"

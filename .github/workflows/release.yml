@@ -114,6 +114,11 @@ jobs:
         with:
           name: v${{ steps.version.outputs.VERSION }}
           tag_name: v${{ steps.version.outputs.VERSION }}
+          # Anchor the tag to the exact commit we just built. Without this,
+          # softprops/action-gh-release creates the tag at the default branch
+          # HEAD as of release-creation time, which on the workflow_call path
+          # can be a later merge than the PR we're releasing for.
+          target_commitish: ${{ github.sha }}
           draft: false
           prerelease: false
           generate_release_notes: true

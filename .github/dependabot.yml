@@ -1,0 +1,24 @@
+# Dependabot configuration.
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# Pairs with the SHA-pinned third-party actions in .github/workflows/ — we pin
+# third-party actions to exact commits for supply-chain integrity, and Dependabot
+# surfaces new upstream releases as reviewable PRs so the SHAs stay current
+# without manual re-resolution.
+#
+# Every auto-bump PR carries the `release:skip` label so the auto-release
+# workflow (.github/workflows/auto-release.yml) doesn't attempt to cut a
+# version for a CI-only change. Mirror the same label convention on any
+# future ecosystems added here (e.g. nuget for the .csproj package refs).
+
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    # Root "/" tells Dependabot to scan .github/workflows/ automatically — it's
+    # the only path convention GitHub Actions supports, so no per-workflow
+    # config is needed.
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "release:skip"

@@ -497,6 +497,14 @@
                         <TextBlock Text="About" FontSize="20" FontWeight="Medium" Margin="0,0,0,16"/>
                         <wpfui:Card Padding="24">
                             <StackPanel>
+                                <!-- ── Header: icon + identity block ────────────────
+                                     Identity block stacks three lines next to the
+                                     48px icon: product name, version, and copyright.
+                                     Version and copyright both come from assembly
+                                     metadata (MSBuild fills them from the csproj's
+                                     <Version> / <Copyright> properties) so the UI
+                                     always matches what shipped.
+                                -->
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
                                     <!--
                                         App icon from Assets/app-icon.png — a 256x256 PNG rasterised
@@ -509,26 +517,37 @@
                                            RenderOptions.BitmapScalingMode="HighQuality"/>
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock Text="Audio Monitor Router" FontSize="18" FontWeight="SemiBold"/>
-                                        <!-- Version string comes from the assembly at runtime so
-                                             it always tracks the CI-built tag, no hardcoding. -->
                                         <TextBlock Text="{Binding AppVersionDisplay}" FontSize="12"
+                                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,2,0,0"/>
+                                        <TextBlock Text="{Binding CopyrightDisplay}" FontSize="12"
                                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,2,0,0"/>
                                     </StackPanel>
                                 </StackPanel>
                                 <Border Height="1" Background="{DynamicResource ControlStrokeColorDefaultBrush}" Margin="0,0,0,16"/>
-                                <TextBlock TextWrapping="Wrap" FontSize="13" LineHeight="22"
-                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}">
-                                    Automatically routes audio output based on which monitor an application
-                                    is displayed on. Apps on Monitor A play through Speaker A, apps on
-                                    Monitor B play through Speaker B.
-                                </TextBlock>
+
+                                <!-- ── Links ────────────────────────────────────────
+                                     Two static GitHub URLs; /releases/latest redirects
+                                     to the current tag so we don't have to bake a
+                                     version into the URL here.
+                                -->
+                                <TextBlock Text="Links" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                <wpfui:Hyperlink Content="Project website on GitHub"
+                                                 Icon="Link24"
+                                                 NavigateUri="https://github.com/twibster/AudioMonitorRouter"
+                                                 HorizontalAlignment="Left" Margin="0,0,0,4"/>
+                                <wpfui:Hyperlink Content="Latest release on GitHub"
+                                                 Icon="Link24"
+                                                 NavigateUri="https://github.com/twibster/AudioMonitorRouter/releases/latest"
+                                                 HorizontalAlignment="Left"/>
+
                                 <!-- ── Update check ─────────────────────────────────
                                      User-initiated (no background polling) so we
                                      don't hit GitHub's rate limit without consent.
                                      The button is disabled while a probe is in flight
-                                     and the result is rendered below in one status
-                                     line. If a newer version is available, the
-                                     Download hyperlink appears with the release URL.
+                                     and the result is rendered next to it in one
+                                     status line. If a newer version is available,
+                                     the Download hyperlink appears with the release
+                                     URL.
                                 -->
                                 <Border Height="1" Background="{DynamicResource ControlStrokeColorDefaultBrush}" Margin="0,20,0,16"/>
                                 <TextBlock Text="Updates" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
@@ -551,28 +570,6 @@
                                                  NavigateUri="{Binding LatestReleaseUrl}"
                                                  HorizontalAlignment="Left"
                                                  Visibility="{Binding LatestReleaseUrl, Converter={StaticResource StringToVisibilityConverter}}"/>
-
-                                <!-- ── Copyright + Links ────────────────────────────
-                                     Copyright string is assembled by MSBuild from the
-                                     csproj's <Copyright> and read back at runtime, so
-                                     bumping the year in the csproj updates both file
-                                     properties and the About page in one shot.
-                                     /releases/latest redirects to the current tag on
-                                     GitHub's side — no need to bake a version into
-                                     the URL here.
-                                -->
-                                <Border Height="1" Background="{DynamicResource ControlStrokeColorDefaultBrush}" Margin="0,20,0,16"/>
-                                <TextBlock Text="{Binding CopyrightDisplay}" FontSize="12"
-                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,0,0,16"/>
-                                <TextBlock Text="Links" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                                <wpfui:Hyperlink Content="Project website on GitHub"
-                                                 Icon="Link24"
-                                                 NavigateUri="https://github.com/twibster/AudioMonitorRouter"
-                                                 HorizontalAlignment="Left" Margin="0,0,0,4"/>
-                                <wpfui:Hyperlink Content="Latest release on GitHub"
-                                                 Icon="Link24"
-                                                 NavigateUri="https://github.com/twibster/AudioMonitorRouter/releases/latest"
-                                                 HorizontalAlignment="Left"/>
                             </StackPanel>
                         </wpfui:Card>
                     </StackPanel>

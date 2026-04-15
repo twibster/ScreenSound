@@ -186,7 +186,7 @@ public class UpdateService
         var asm = Assembly.GetEntryAssembly() ?? typeof(UpdateService).Assembly;
         var value = asm.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright;
         return string.IsNullOrWhiteSpace(value)
-            ? $"Copyright (c) {DateTime.Now.Year} twibster"
+            ? $"Copyright (c) {DateTime.Now.Year} Omar Omran"
             : value;
     }
 

@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Concept 4b (tightened): widescreen monitor, speaker + single soundwave
+       inside, a clean outbound arrow that physically crosses the right bezel.
+       Three clear semantic slots:
+         • grey monitor (structure)
+         • blue speaker + wave (audio content)
+         • blue arrow (routing direction) -->
+
+  <!-- Monitor frame: 5:3 widescreen -->
+  <rect x="22" y="64" width="160" height="100" rx="10"
+        fill="none" stroke="#5A5A5A" stroke-width="12"/>
+
+  <!-- Stand stem + base, centered under the monitor -->
+  <line x1="102" y1="164" x2="102" y2="188"
+        stroke="#5A5A5A" stroke-width="12" stroke-linecap="round"/>
+  <line x1="74" y1="192" x2="130" y2="192"
+        stroke="#5A5A5A" stroke-width="12" stroke-linecap="round"/>
+
+  <!-- Speaker glyph inside the display -->
+  <path d="M 52 100 L 74 100 L 102 78 L 102 150 L 74 128 L 52 128 Z"
+        fill="#0078D4" stroke="#0078D4" stroke-width="3" stroke-linejoin="round"/>
+
+  <!-- Single soundwave next to the speaker (inside the monitor) -->
+  <path d="M 118 98 Q 136 114, 118 130"
+        fill="none" stroke="#0078D4" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- Outbound arrow: tail starts just past the wave, crosses the right
+       bezel, ends in a tip outside. Drawn last so the blue sits on top of
+       the grey where they overlap — the crossing reads as a clean exit. -->
+  <path d="M 144 114 L 224 114
+           M 208 98 L 224 114 L 208 130"
+        fill="none" stroke="#0078D4" stroke-width="13"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -80,6 +80,35 @@ public partial class SessionDisplayViewModel : ObservableObject
     [ObservableProperty] private string _monitorName = string.Empty;
     [ObservableProperty] private string _audioDeviceName = string.Empty;
     [ObservableProperty] private ImageSource? _icon;
+
+    /// <summary>
+    /// True when this session is being routed by an explicit per-app pin rather
+    /// than the monitor → device mapping. Drives the pin glyph in the row UI and
+    /// the "Remove pin" entry in the right-click menu.
+    /// </summary>
+    [ObservableProperty] private bool _isOverridden;
+}
+
+/// <summary>
+/// One entry in the Pinned Apps list. Wraps a process name + the device the
+/// user has pinned it to. <see cref="AudioDeviceName"/> is resolved against the
+/// current device list each time the overrides UI refreshes — if the pinned
+/// device is currently unplugged, name resolution falls back to a placeholder
+/// while the underlying ID stays intact, mirroring the monitor-mapping behavior.
+/// </summary>
+public partial class AppOverrideViewModel : ObservableObject
+{
+    [ObservableProperty] private string _processName = string.Empty;
+    [ObservableProperty] private string _audioDeviceId = string.Empty;
+    [ObservableProperty] private string _audioDeviceName = string.Empty;
+
+    /// <summary>
+    /// App icon shown in the Pinned page. Captured from the originating session
+    /// at pin-creation time, or back-filled by <c>MainWindowViewModel</c> when a
+    /// pin loaded from disk matches a live session on the next session update.
+    /// Null while the pinned app isn't running — the UI falls back to a pin glyph.
+    /// </summary>
+    [ObservableProperty] private ImageSource? _icon;
 }
 
 public partial class MainWindowViewModel : ObservableObject, IDisposable
@@ -113,6 +142,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public ObservableCollection<AudioDeviceInfo> AudioDevices { get; } = new();
     public ObservableCollection<SessionDisplayViewModel> ActiveSessions { get; } = new();
 
+    /// <summary>
+    /// Per-app device pins shown in the "Pinned Apps" page and the source of
+    /// truth for what the routing engine sees. Process name is the lookup key
+    /// (case-insensitive). Source of additions is the right-click menu on an
+    /// active session; removals come from the pin button on this page or the
+    /// "Remove pin" entry on the session's context menu.
+    /// </summary>
+    public ObservableCollection<AppOverrideViewModel> AppOverrides { get; } = new();
+
     [ObservableProperty]
     private bool _isRoutingEnabled;
 
@@ -137,7 +175,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public string[] ThemeOptions { get; } = { "System", "Light", "Dark" };
 
     [ObservableProperty]
-    private int _currentPage; // 0 = Home, 1 = Settings, 2 = About
+    private int _currentPage; // 0 = Home, 1 = Pinned, 2 = Settings, 3 = About
 
     public MainWindowViewModel()
     {
@@ -275,6 +313,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         // and a newly removed one needs the engine to stop trying to route to it.
         PushMappingsToEngine();
 
+        // Re-resolve names on existing pins (their device IDs are stable, but
+        // the friendly-name string for an unplugged device flips between
+        // "(Device not connected)" and the real name on hot-plug).
+        RefreshAppOverrideDeviceNames();
+
         // Re-sync sliders in case a re-plugged device has a different volume
         // than the one we last remembered.
         RefreshAssignedVolumes();
@@ -313,9 +356,42 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 _ => 0
             };
 
+            // Rebuild the per-app pin list from disk. Resolve device names against
+            // the current device list — pins whose device is currently unplugged
+            // get a placeholder name but keep their ID, so they reactivate cleanly
+            // when the device returns.
+            //
+            // Collapse duplicate keys case-insensitively on the way in. System.Text.Json
+            // deserializes into a Dictionary with the default (ordinal) comparer, so a
+            // hand-edited settings.json containing both "chrome" and "Chrome" would load
+            // without complaint — but PushOverridesToEngine() / SaveSettings() build an
+            // OrdinalIgnoreCase dict downstream and would throw on the collision,
+            // aborting startup. Normalize here; last key wins, consistent with a
+            // re-save of what we end up with.
+            AppOverrides.Clear();
+            var normalized = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var kvp in settings.AppOverrides)
+            {
+                if (string.IsNullOrWhiteSpace(kvp.Key) || string.IsNullOrWhiteSpace(kvp.Value))
+                    continue;
+                normalized[kvp.Key.Trim()] = kvp.Value;
+            }
+            foreach (var (processName, deviceId) in normalized)
+            {
+                var deviceName = AudioDevices.FirstOrDefault(d => d.Id == deviceId)?.FriendlyName
+                                 ?? "(Device not connected)";
+                AppOverrides.Add(new AppOverrideViewModel
+                {
+                    ProcessName = processName,
+                    AudioDeviceId = deviceId,
+                    AudioDeviceName = deviceName
+                });
+            }
+
             RefreshAssignedVolumes();
 
             PushMappingsToEngine();
+            PushOverridesToEngine();
             IsRoutingEnabled = settings.IsEnabled;
         }
         finally
@@ -379,6 +455,89 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _routingEngine.UpdateMappings(mappings);
     }
 
+    private void PushOverridesToEngine()
+    {
+        var dict = AppOverrides.ToDictionary(
+            o => o.ProcessName,
+            o => o.AudioDeviceId,
+            StringComparer.OrdinalIgnoreCase);
+        _routingEngine.UpdateAppOverrides(dict);
+    }
+
+    /// <summary>
+    /// Pin a process to a specific audio device. Replaces any existing pin for
+    /// the same process. Persists immediately and pushes to the engine so the
+    /// new pin takes effect on the next routing pass (typically &lt;200ms).
+    /// </summary>
+    /// <param name="icon">
+    /// Optional app icon to attach to the pin. Callers that already have the
+    /// icon (the right-click flow pins from a live session that's been through
+    /// <c>GetProcessIcon</c>) pass it through so the Pinned page shows it
+    /// immediately rather than waiting for the next sessions update.
+    /// </param>
+    public void SetAppOverride(string processName, string deviceId, ImageSource? icon = null)
+    {
+        if (string.IsNullOrWhiteSpace(processName) || string.IsNullOrWhiteSpace(deviceId))
+            return;
+
+        var deviceName = AudioDevices.FirstOrDefault(d => d.Id == deviceId)?.FriendlyName ?? "(Unknown device)";
+
+        var existing = AppOverrides.FirstOrDefault(
+            o => string.Equals(o.ProcessName, processName, StringComparison.OrdinalIgnoreCase));
+        if (existing != null)
+        {
+            existing.AudioDeviceId = deviceId;
+            existing.AudioDeviceName = deviceName;
+            // Only overwrite with a non-null incoming icon — re-pinning from a
+            // session preserves the icon we already had if the caller passed null.
+            if (icon != null) existing.Icon = icon;
+        }
+        else
+        {
+            AppOverrides.Add(new AppOverrideViewModel
+            {
+                ProcessName = processName,
+                AudioDeviceId = deviceId,
+                AudioDeviceName = deviceName,
+                Icon = icon
+            });
+        }
+
+        PushOverridesToEngine();
+        SaveSettings();
+    }
+
+    /// <summary>
+    /// Remove the pin for <paramref name="processName"/>. No-op if no pin exists.
+    /// The session falls back to the monitor mapping on the next routing pass.
+    /// </summary>
+    public void RemoveAppOverride(string processName)
+    {
+        if (string.IsNullOrWhiteSpace(processName)) return;
+
+        var existing = AppOverrides.FirstOrDefault(
+            o => string.Equals(o.ProcessName, processName, StringComparison.OrdinalIgnoreCase));
+        if (existing == null) return;
+
+        AppOverrides.Remove(existing);
+        PushOverridesToEngine();
+        SaveSettings();
+    }
+
+    /// <summary>
+    /// Re-resolve the friendly name of every pin against the current device list.
+    /// Called after a hot-plug refresh so a previously-unplugged pinned device
+    /// starts showing its real name (and vice versa).
+    /// </summary>
+    private void RefreshAppOverrideDeviceNames()
+    {
+        foreach (var ovr in AppOverrides)
+        {
+            var name = AudioDevices.FirstOrDefault(d => d.Id == ovr.AudioDeviceId)?.FriendlyName;
+            ovr.AudioDeviceName = name ?? "(Device not connected)";
+        }
+    }
+
     private void SaveSettings()
     {
         var settings = new AppSettings
@@ -399,7 +558,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                     MonitorDeviceName = m.Monitor.DeviceName,
                     AudioDeviceId = m.DesiredAudioDeviceId
                 })
-                .ToList()
+                .ToList(),
+            // Pins survive device unplug for the same reason mappings do — we
+            // store the device ID, not its present-or-not state.
+            AppOverrides = AppOverrides.ToDictionary(
+                o => o.ProcessName,
+                o => o.AudioDeviceId,
+                StringComparer.OrdinalIgnoreCase)
         };
 
         _settingsService.Save(settings);
@@ -510,9 +675,14 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             _isLoading = false;
         }
 
+        // Pin device names are derived from AudioDevices — refresh them after
+        // the device list rebuild so the Pinned page reflects the new state.
+        RefreshAppOverrideDeviceNames();
+
         if (wasRunning)
         {
             PushMappingsToEngine();
+            PushOverridesToEngine();
             _routingEngine.Start();
             _isLoading = true;
             IsRoutingEnabled = true;
@@ -568,8 +738,24 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                     ProcessId = item.Session.ProcessId,
                     MonitorName = item.Session.MonitorFriendlyName,
                     AudioDeviceName = item.Session.AudioDeviceName,
-                    Icon = item.Icon
+                    Icon = item.Icon,
+                    IsOverridden = item.Session.IsOverridden
                 });
+            }
+
+            // Back-fill icons on pins loaded from disk: when a pinned app first
+            // starts playing audio we now have a PID to extract its icon from,
+            // so the Pinned page switches from the pin-glyph fallback to the real
+            // app icon. Matches are case-insensitive; first live session wins.
+            foreach (var ovr in AppOverrides)
+            {
+                if (ovr.Icon != null) continue;
+                var match = sessionData.FirstOrDefault(s =>
+                    string.Equals(s.Session.ProcessName, ovr.ProcessName,
+                                  StringComparison.OrdinalIgnoreCase)
+                    && s.Icon != null);
+                if (match != null)
+                    ovr.Icon = match.Icon;
             }
         });
     }

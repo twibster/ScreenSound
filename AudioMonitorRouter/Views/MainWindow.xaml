@@ -77,8 +77,19 @@
                 </StackPanel>
             </RadioButton>
 
+            <RadioButton DockPanel.Dock="Top" GroupName="Nav"
+                         Checked="NavButton_Checked" Tag="1"
+                         Style="{StaticResource SidebarNavButton}">
+                <StackPanel HorizontalAlignment="Center">
+                    <wpfui:SymbolIcon Symbol="Pin24" FontSize="22" HorizontalAlignment="Center"
+                                      Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                    <TextBlock Text="Pinned" FontSize="10" HorizontalAlignment="Center" Margin="0,4,0,0"
+                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                </StackPanel>
+            </RadioButton>
+
             <RadioButton DockPanel.Dock="Bottom" GroupName="Nav"
-                         Checked="NavButton_Checked" Tag="2"
+                         Checked="NavButton_Checked" Tag="3"
                          Style="{StaticResource SidebarNavButton}">
                 <StackPanel HorizontalAlignment="Center">
                     <wpfui:SymbolIcon Symbol="Info24" FontSize="22" HorizontalAlignment="Center"
@@ -89,7 +100,7 @@
             </RadioButton>
 
             <RadioButton DockPanel.Dock="Bottom" GroupName="Nav"
-                         Checked="NavButton_Checked" Tag="1"
+                         Checked="NavButton_Checked" Tag="2"
                          Style="{StaticResource SidebarNavButton}">
                 <StackPanel HorizontalAlignment="Center">
                     <wpfui:SymbolIcon Symbol="Settings24" FontSize="22" HorizontalAlignment="Center"
@@ -216,12 +227,51 @@
                         <Grid>
                             <ScrollViewer VerticalScrollBarVisibility="Auto"
                                           HorizontalScrollBarVisibility="Disabled">
-                                <ItemsControl ItemsSource="{Binding ActiveSessions}">
+                                <!-- TabNavigation=Once: one Tab lands on the first focusable row, then
+                                     arrow keys navigate between rows — standard list-like keyboarding
+                                     without needing a ListBox wrapper and its selection visuals. -->
+                                <ItemsControl ItemsSource="{Binding ActiveSessions}"
+                                              KeyboardNavigation.TabNavigation="Once"
+                                              KeyboardNavigation.DirectionalNavigation="Contained">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
+                                            <!-- Tag carries the row's session VM into the ContextMenu, which lives
+                                                 outside the visual tree and can't reach DataContext directly. The
+                                                 ContextMenuOpening handler reads it back via PlacementTarget.Tag.
+                                                 Focusable + IsTabStop + PreviewKeyDown make pinning reachable from
+                                                 the keyboard (Apps or Shift+F10 opens the same menu as right-click);
+                                                 AutomationProperties.Name gives screen readers a meaningful label. -->
                                             <Border Padding="20,10"
                                                     BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                                                    BorderThickness="0,0,0,1" Background="Transparent">
+                                                    BorderThickness="0,0,0,1"
+                                                    Tag="{Binding}"
+                                                    Focusable="True"
+                                                    KeyboardNavigation.IsTabStop="True"
+                                                    AutomationProperties.Name="{Binding ProcessName, StringFormat='Audio session {0}. Press Menu key or Shift+F10 to pin.'}"
+                                                    ContextMenuOpening="SessionRow_ContextMenuOpening"
+                                                    PreviewKeyDown="SessionRow_PreviewKeyDown">
+                                                <!-- Background is driven by the style rather than a local value so
+                                                     the IsKeyboardFocused trigger can take effect (local values
+                                                     beat style triggers in WPF's property-precedence order). -->
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="Transparent"/>
+                                                        <Style.Triggers>
+                                                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                                                <Setter Property="Background"
+                                                                        Value="{DynamicResource SubtleFillColorSecondaryBrush}"/>
+                                                            </Trigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <Border.ContextMenu>
+                                                    <ContextMenu>
+                                                        <MenuItem x:Name="PinToDeviceMenu" Header="Pin to device"/>
+                                                        <Separator x:Name="PinSeparator"/>
+                                                        <MenuItem x:Name="RemovePinMenu" Header="Remove pin"
+                                                                  Click="RemovePin_Click"/>
+                                                    </ContextMenu>
+                                                </Border.ContextMenu>
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*"/>
@@ -241,9 +291,16 @@
                                                     <TextBlock Grid.Column="1" Text="{Binding MonitorName}"
                                                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                                FontSize="13" VerticalAlignment="Center"/>
-                                                    <TextBlock Grid.Column="2" Text="{Binding AudioDeviceName}"
-                                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                               FontSize="13" VerticalAlignment="Center"/>
+                                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <wpfui:SymbolIcon Symbol="Pin24" FontSize="14"
+                                                                          Margin="0,0,6,0" VerticalAlignment="Center"
+                                                                          Foreground="{DynamicResource SystemAccentColorPrimaryBrush}"
+                                                                          ToolTip="Pinned by an app override"
+                                                                          Visibility="{Binding IsOverridden, Converter={StaticResource BoolToVis}}"/>
+                                                        <TextBlock Text="{Binding AudioDeviceName}"
+                                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                                   FontSize="13" VerticalAlignment="Center"/>
+                                                    </StackPanel>
                                                 </Grid>
                                             </Border>
                                         </DataTemplate>
@@ -258,6 +315,91 @@
                                 <TextBlock Text="No active audio sessions" FontSize="13"
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" HorizontalAlignment="Center"/>
                                 <TextBlock Text="Enable routing and play some audio" FontSize="11"
+                                           Foreground="{DynamicResource TextFillColorDisabledBrush}"
+                                           HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- ═══ PINNED APPS PAGE ═══ -->
+            <Border x:Name="PinnedPage" Visibility="Collapsed" Opacity="0">
+                <Border.RenderTransform><TranslateTransform/></Border.RenderTransform>
+                <Grid Margin="24,20,24,16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,16">
+                        <TextBlock Text="Pinned Apps" FontSize="20" FontWeight="Medium"/>
+                        <TextBlock TextWrapping="Wrap" FontSize="12"
+                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                   Margin="0,4,0,0">
+                            Pinned apps always play through the chosen device, regardless of which monitor
+                            their window is on. Right-click an Active Session on the Home page to pin it.
+                        </TextBlock>
+                    </StackPanel>
+
+                    <Border Grid.Row="1" MinHeight="80"
+                            Background="{DynamicResource CardBackgroundFillColorSecondaryBrush}"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1" CornerRadius="8">
+                        <Grid>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{Binding AppOverrides}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Padding="20,12"
+                                                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                                    BorderThickness="0,0,0,1" Background="Transparent">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <!-- Icon slot: app icon if we've captured it, else a pin glyph.
+                                                         Icon is captured at pin time from the live session and
+                                                         back-filled for disk-loaded pins when the app next plays.
+                                                         Both visuals live in the same slot so the row layout is
+                                                         stable either way. -->
+                                                    <Grid Grid.Column="0" Width="20" Height="20"
+                                                          Margin="0,0,12,0" VerticalAlignment="Center">
+                                                        <Image Source="{Binding Icon}" Width="20" Height="20"
+                                                               RenderOptions.BitmapScalingMode="HighQuality"
+                                                               Visibility="{Binding Icon, Converter={StaticResource NotNullToVis}}"/>
+                                                        <wpfui:SymbolIcon Symbol="Pin24" FontSize="18"
+                                                                          Foreground="{DynamicResource SystemAccentColorPrimaryBrush}"
+                                                                          Visibility="{Binding Icon, Converter={StaticResource NullToVis}}"/>
+                                                    </Grid>
+                                                    <TextBlock Grid.Column="1" Text="{Binding ProcessName}"
+                                                               FontSize="13" FontWeight="Medium" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding AudioDeviceName}"
+                                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                               FontSize="13" VerticalAlignment="Center"/>
+                                                    <wpfui:Button Grid.Column="3" Icon="Delete24"
+                                                                  Appearance="Transparent" Width="32" Height="32"
+                                                                  ToolTip="Remove pin"
+                                                                  Tag="{Binding}"
+                                                                  Click="RemovePinFromList_Click"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        Visibility="{Binding AppOverrides.Count, Converter={StaticResource ZeroToVis}}"
+                                        IsHitTestVisible="False">
+                                <wpfui:SymbolIcon Symbol="Pin24" FontSize="32" Opacity="0.3"
+                                                  HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                                <TextBlock Text="No pinned apps" FontSize="13"
+                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Right-click an Active Session on Home to pin it" FontSize="11"
                                            Foreground="{DynamicResource TextFillColorDisabledBrush}"
                                            HorizontalAlignment="Center" Margin="0,4,0,0"/>
                             </StackPanel>

@@ -50,6 +50,13 @@ public class RoutingEngine : IDisposable
     // In-memory mappings pushed from the ViewModel — no disk reads in the hot loop
     private volatile Dictionary<string, string> _mappings = new();
 
+    // Per-app pins: process name (case-insensitive, no .exe) → audio device ID.
+    // Checked before the monitor mapping so a pinned app stays on its chosen device
+    // regardless of which monitor its window is on. volatile + replace-whole-dict
+    // means the work loop sees a coherent snapshot without locks.
+    private volatile Dictionary<string, string> _appOverrides =
+        new(StringComparer.OrdinalIgnoreCase);
+
     // Device name lookup cached per cycle
     private Dictionary<string, string> _deviceNameCache = new();
 
@@ -72,6 +79,17 @@ public class RoutingEngine : IDisposable
         _mappings = mappings.ToDictionary(m => m.MonitorDeviceName, m => m.AudioDeviceId);
         // Mappings changed — re-evaluate immediately so already-running sessions
         // get routed without waiting for the next user action.
+        Trigger();
+    }
+
+    /// <summary>
+    /// Replaces the per-app override pins. Triggers an immediate routing pass so
+    /// a newly-added pin takes effect without the user having to interact with the
+    /// app, and a removed pin allows the monitor mapping to take over right away.
+    /// </summary>
+    public void UpdateAppOverrides(IDictionary<string, string> overrides)
+    {
+        _appOverrides = new Dictionary<string, string>(overrides, StringComparer.OrdinalIgnoreCase);
         Trigger();
     }
 
@@ -264,6 +282,7 @@ public class RoutingEngine : IDisposable
     private void PerformRoutingCycle()
     {
         var mappings = _mappings;
+        var overrides = _appOverrides;
 
         var sessions = _sessionService.GetActiveSessions();
 
@@ -287,6 +306,11 @@ public class RoutingEngine : IDisposable
         {
             try
             {
+                // Default to "not overridden" — flipped on below if a pin matches.
+                // Reset every cycle so removing a pin clears the indicator on the
+                // very next pass even if the session is still alive.
+                session.IsOverridden = false;
+
                 // Always detect which monitor the process is on
                 var monitor = _monitorService.GetMonitorForProcess(session.ProcessId);
                 if (monitor != null)
@@ -301,15 +325,40 @@ public class RoutingEngine : IDisposable
                     session.AudioDeviceName = currentDeviceName;
                 }
 
-                // Only route if we have a mapping for this monitor
-                if (monitor == null || mappings.Count == 0)
-                    continue;
-
-                if (!mappings.TryGetValue(monitor.DeviceName, out var targetDeviceId))
-                    continue;
+                // Resolve the target device. Per-app pins win over monitor mappings —
+                // a pinned app stays on its chosen device regardless of monitor.
+                string? targetDeviceId = null;
+                if (!string.IsNullOrEmpty(session.ProcessName) &&
+                    overrides.TryGetValue(session.ProcessName, out var pinnedDeviceId) &&
+                    !string.IsNullOrEmpty(pinnedDeviceId))
+                {
+                    targetDeviceId = pinnedDeviceId;
+                    session.IsOverridden = true;
+                }
+                else if (monitor != null && mappings.Count > 0 &&
+                         mappings.TryGetValue(monitor.DeviceName, out var monitorTarget) &&
+                         !string.IsNullOrEmpty(monitorTarget))
+                {
+                    targetDeviceId = monitorTarget;
+                }
 
                 if (string.IsNullOrEmpty(targetDeviceId))
+                {
+                    // No rule applies right now. If we previously routed this PID
+                    // (pin removed, monitor mapping cleared, window moved to a
+                    // monitor without a mapping, …), undo our prior per-app
+                    // policy so Windows falls back to the system default. Without
+                    // this, the stale override set by the pin would persist after
+                    // unpinning and audio would stay stuck on the old device.
+                    // TryRemove-first means we only clear once per transition —
+                    // subsequent heartbeat cycles find no cache entry and skip.
+                    if (_lastRoutedDevice.TryRemove(session.ProcessId, out _))
+                    {
+                        try { _routerService.TryClearProcessRouting(session.ProcessId); }
+                        catch { /* process may have exited */ }
+                    }
                     continue;
+                }
 
                 // Update display to show the target device
                 if (_deviceNameCache.TryGetValue(targetDeviceId, out var targetDeviceName))

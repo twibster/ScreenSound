@@ -352,17 +352,30 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             // the current device list — pins whose device is currently unplugged
             // get a placeholder name but keep their ID, so they reactivate cleanly
             // when the device returns.
+            //
+            // Collapse duplicate keys case-insensitively on the way in. System.Text.Json
+            // deserializes into a Dictionary with the default (ordinal) comparer, so a
+            // hand-edited settings.json containing both "chrome" and "Chrome" would load
+            // without complaint — but PushOverridesToEngine() / SaveSettings() build an
+            // OrdinalIgnoreCase dict downstream and would throw on the collision,
+            // aborting startup. Normalize here; last key wins, consistent with a
+            // re-save of what we end up with.
             AppOverrides.Clear();
+            var normalized = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var kvp in settings.AppOverrides)
             {
                 if (string.IsNullOrWhiteSpace(kvp.Key) || string.IsNullOrWhiteSpace(kvp.Value))
                     continue;
-                var deviceName = AudioDevices.FirstOrDefault(d => d.Id == kvp.Value)?.FriendlyName
+                normalized[kvp.Key.Trim()] = kvp.Value;
+            }
+            foreach (var (processName, deviceId) in normalized)
+            {
+                var deviceName = AudioDevices.FirstOrDefault(d => d.Id == deviceId)?.FriendlyName
                                  ?? "(Device not connected)";
                 AppOverrides.Add(new AppOverrideViewModel
                 {
-                    ProcessName = kvp.Key,
-                    AudioDeviceId = kvp.Value,
+                    ProcessName = processName,
+                    AudioDeviceId = deviceId,
                     AudioDeviceName = deviceName
                 });
             }

@@ -173,7 +173,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Post release link
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const version = '${{ needs.compute-version.outputs.version }}';

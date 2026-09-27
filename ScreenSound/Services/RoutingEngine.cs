@@ -296,6 +296,7 @@ public class RoutingEngine : IDisposable
 
         // Clean up stale PIDs
         var activePids = new HashSet<uint>(sessions.Select(s => s.ProcessId));
+        _monitorService.RetainProcesses(activePids);
         foreach (var pid in _lastRoutedDevice.Keys)
         {
             if (!activePids.Contains(pid))

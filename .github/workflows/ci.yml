@@ -25,3 +25,6 @@ jobs:
 
       - name: Build
         run: dotnet build ScreenSound.sln -c Release --no-restore
+
+      - name: Monitor routing regressions
+        run: dotnet run --project tests/MonitorRegression/MonitorRegression.csproj -c Release

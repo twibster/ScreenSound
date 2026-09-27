@@ -10,6 +10,7 @@ public class MonitorService
     private List<MonitorInfo>? _cachedMonitors;
     private DateTime _lastRefresh = DateTime.MinValue;
     private static readonly TimeSpan CacheExpiry = TimeSpan.FromSeconds(5);
+    private readonly Dictionary<uint, (IntPtr Window, uint Owner, string DeviceName)> _lastKnownWindows = new();
 
     public List<MonitorInfo> GetMonitors(bool forceRefresh = false)
     {
@@ -74,12 +75,44 @@ public class MonitorService
         _cachedMonitors = null;
     }
 
+    public void RetainProcesses(ISet<uint> activeProcessIds)
+    {
+        foreach (var processId in _lastKnownWindows.Keys.ToArray())
+            if (!activeProcessIds.Contains(processId))
+                _lastKnownWindows.Remove(processId);
+    }
+
     public MonitorInfo? GetMonitorForProcess(uint processId)
     {
         // Try the exact PID first, then walk up the parent process tree.
         // Handles Electron apps (Discord, Slack, VS Code) where the audio
         // session runs in a child renderer process without a visible window.
         var pidsToTry = GetProcessAndAncestors(processId);
+
+        var monitors = GetMonitors();
+        if (monitors.Count == 0) return null;
+
+        // Minimized/tray-hidden windows may have a tiny or off-screen rectangle.
+        // Keep the last visible player's monitor instead of choosing a lyrics
+        // window, an ancestor's window, or the system default audio device.
+        if (_lastKnownWindows.TryGetValue(processId, out var previous))
+        {
+            NativeMethods.GetWindowThreadProcessId(previous.Window, out uint owner);
+            if (!NativeMethods.IsWindow(previous.Window) || owner != previous.Owner || !pidsToTry.Contains(owner))
+            {
+                _lastKnownWindows.Remove(processId);
+            }
+            else if (NativeMethods.IsIconic(previous.Window) || !NativeMethods.IsWindowVisible(previous.Window))
+            {
+                var lastMonitor = monitors.FirstOrDefault(m => m.DeviceName == previous.DeviceName);
+                if (lastMonitor != null) return lastMonitor;
+
+                // The last monitor may have been unplugged while minimized.
+                var nearest = NativeMethods.MonitorFromWindow(previous.Window, NativeMethods.MONITOR_DEFAULTTONEAREST);
+                var replacement = monitors.FirstOrDefault(m => m.Handle == nearest);
+                if (replacement != null) return RememberWindow(processId, previous.Window, replacement);
+            }
+        }
 
         IntPtr hwnd = IntPtr.Zero;
         foreach (var pid in pidsToTry)
@@ -91,13 +124,13 @@ public class MonitorService
 
         if (hwnd == IntPtr.Zero) return null;
 
-        var monitors = GetMonitors();
-        if (monitors.Count == 0) return null;
-
         // PRIMARY METHOD: Use the window's actual position to determine which
         // monitor it's on. This works correctly regardless of DPI scaling.
-        var windowMonitor = FindMonitorByWindowPosition(hwnd, monitors);
-        if (windowMonitor != null) return windowMonitor;
+        // MonitorFromWindow explicitly uses the restored rectangle when iconic.
+        var windowMonitor = NativeMethods.IsIconic(hwnd)
+            ? monitors.FirstOrDefault(m => m.Handle == NativeMethods.MonitorFromWindow(hwnd, NativeMethods.MONITOR_DEFAULTTONEAREST))
+            : FindMonitorByWindowPosition(hwnd, monitors);
+        if (windowMonitor != null) return RememberWindow(processId, hwnd, windowMonitor);
 
         // FALLBACK: Use MonitorFromWindow API + device name matching
         var hMonitor = NativeMethods.MonitorFromWindow(hwnd, NativeMethods.MONITOR_DEFAULTTONEAREST);
@@ -105,7 +138,7 @@ public class MonitorService
         {
             // Try handle match
             var match = monitors.FirstOrDefault(m => m.Handle == hMonitor);
-            if (match != null) return match;
+            if (match != null) return RememberWindow(processId, hwnd, match);
 
             // Try device name match
             var info = new NativeMethods.MONITORINFOEX();
@@ -114,12 +147,19 @@ public class MonitorService
             {
                 var deviceName = info.szDevice?.TrimEnd('\0');
                 match = monitors.FirstOrDefault(m => m.DeviceName == deviceName);
-                if (match != null) return match;
+                if (match != null) return RememberWindow(processId, hwnd, match);
             }
         }
 
         // Last resort: primary monitor
-        return monitors.FirstOrDefault(m => m.IsPrimary) ?? monitors.First();
+        return RememberWindow(processId, hwnd, monitors.FirstOrDefault(m => m.IsPrimary) ?? monitors.First());
+    }
+
+    private MonitorInfo RememberWindow(uint processId, IntPtr window, MonitorInfo monitor)
+    {
+        NativeMethods.GetWindowThreadProcessId(window, out uint owner);
+        _lastKnownWindows[processId] = (window, owner, monitor.DeviceName);
+        return monitor;
     }
 
     private MonitorInfo? FindMonitorByWindowPosition(IntPtr hwnd, List<MonitorInfo> monitors)
@@ -242,6 +282,13 @@ public class MonitorService
                 return true;
 
             NativeMethods.GetWindowRect(hWnd, out NativeMethods.RECT rect);
+            if (NativeMethods.IsIconic(hWnd))
+            {
+                var placement = new NativeMethods.WINDOWPLACEMENT();
+                placement.length = Marshal.SizeOf<NativeMethods.WINDOWPLACEMENT>();
+                if (NativeMethods.GetWindowPlacement(hWnd, ref placement))
+                    rect = placement.rcNormalPosition;
+            }
             int w = rect.Right - rect.Left;
             int h = rect.Bottom - rect.Top;
 
